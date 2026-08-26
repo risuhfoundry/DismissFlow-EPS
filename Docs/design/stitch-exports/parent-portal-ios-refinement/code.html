@@ -1,0 +1,144 @@
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100vw;margin:0;padding:0;background-color:#f8f9ff;}body{overscroll-behavior:none;font-family:'Plus Jakarta Sans',sans-serif;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"on-secondary-fixed-variant":"#444749","on-secondary-container":"#626567","inverse-on-surface":"#eaf1ff","on-tertiary":"#ffffff","tertiary-fixed-dim":"#bec6e0","outline-variant":"#c5c5d8","tertiary":"#384055","secondary-fixed":"#e0e3e5","secondary-container":"#e0e3e5","surface-bright":"#f8f9ff","primary":"#001bcc","on-tertiary-fixed-variant":"#3f465c","on-error-container":"#93000a","background":"#f8f9ff","tertiary-fixed":"#dae2fd","on-surface-variant":"#454655","on-secondary-fixed":"#191c1e","inverse-surface":"#213145","surface-variant":"#d3e4fe","primary-container":"#2d3fe2","on-primary-fixed":"#000865","primary-fixed":"#dfe0ff","on-primary":"#ffffff","inverse-primary":"#bdc2ff","surface":"#f8f9ff","on-secondary":"#ffffff","on-tertiary-fixed":"#131b2e","outline":"#757687","on-tertiary-container":"#c6cde7","on-error":"#ffffff","surface-container":"#e5eeff","surface-container-high":"#dce9ff","surface-dim":"#cbdbf5","tertiary-container":"#4f576d","secondary-fixed-dim":"#c4c7c9","surface-container-low":"#eff4ff","error":"#ba1a1a","on-background":"#0b1c30","surface-tint":"#3648e9","primary-fixed-dim":"#bdc2ff","on-primary-fixed-variant":"#1127d2","error-container":"#ffdad6","surface-container-lowest":"#ffffff","secondary":"#5c5f61","surface-container-highest":"#d3e4fe","on-surface":"#0b1c30","on-primary-container":"#c6caff"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"container-padding-mobile":"1rem","unit":"4px","stack-lg":"2rem","stack-sm":"0.5rem","container-padding-desktop":"2.5rem","stack-md":"1rem","gutter":"1.5rem"},"fontFamily":{"body-lg":["Plus Jakarta Sans"],"display":["Plus Jakarta Sans"],"headline-md":["Plus Jakarta Sans"],"label-md":["Plus Jakarta Sans"],"label-sm":["Plus Jakarta Sans"],"headline-lg":["Plus Jakarta Sans"],"body-md":["Plus Jakarta Sans"],"headline-lg-mobile":["Plus Jakarta Sans"]},"fontSize":{"body-lg":["18px",{"lineHeight":"1.6","fontWeight":"400"}],"display":["48px",{"lineHeight":"1.1","letterSpacing":"-0.02em","fontWeight":"800"}],"headline-md":["24px",{"lineHeight":"1.3","fontWeight":"600"}],"label-md":["14px",{"lineHeight":"1.4","letterSpacing":"0.01em","fontWeight":"600"}],"label-sm":["12px",{"lineHeight":"1.4","fontWeight":"500"}],"headline-lg":["32px",{"lineHeight":"1.2","letterSpacing":"-0.02em","fontWeight":"700"}],"body-md":["16px",{"lineHeight":"1.5","fontWeight":"400"}],"headline-lg-mobile":["24px",{"lineHeight":"1.2","fontWeight":"700"}]}}}}</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+    
+    @keyframes fade-in-up {
+      0% {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .animate-fade-in-up {
+      animation: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      opacity: 0;
+    }
+    
+    .delay-100 { animation-delay: 100ms; }
+    .delay-200 { animation-delay: 200ms; }
+    .delay-300 { animation-delay: 300ms; }
+  </style>
+</head><body class="bg-background text-on-surface font-body-md" style="background-color: #F2F2F7;"><header class="fixed top-0 inset-x-0 z-50 bg-white/70 backdrop-blur-[20px] border-b-[0.5px] border-black/10 pt-safe transition-all duration-300"><div class="h-16 px-container-padding-mobile flex items-center justify-between"><div class="flex flex-col px-5 py-4 w-full"><div class="flex justify-between items-center mb-2"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><img alt="DismissFlow Logo" class="h-6 w-auto opacity-50" src="https://lh3.googleusercontent.com/aida/AEtjO1V5XnAOT17Y7G0FDOaMzjSbJk2P_AuuYvVCOhmvN_R7G8OZmQo8_W1hwG_GT7FDTJm9yGJifFVDWkmcXQKYx78KRBwvY7Pa7CPeNVuIsbHI_qvxUPg5cvTUEO3kXdi-xc7ki4Am7gkPKlATE-Ud0WJkJteu4dC4mUJOhkwc2MI-eSHnipq_eBLmSyo5r4XfNf1DQXsn50_38gpTe3efy6Y0mK8xaG7Zm13GEG4DdbsJpIQoB5c6mp9ZhMw"/></div><h1 class="text-[34px] font-extrabold tracking-tight text-on-surface">Dashboard</h1></div></div></header><main class="flex flex-col relative w-full pt-32 pb-24 min-h-screen"><div class="flex flex-col w-full gap-stack-lg p-container-padding-mobile">
+<!-- Welcome & Date -->
+<div class="flex justify-between items-end animate-fade-in-up"><div><p class="text-[13px] font-semibold text-on-surface-variant uppercase tracking-wide opacity-60">Welcome back</p><h2 class="text-[22px] font-bold text-on-surface tracking-tight">Priya Sharma</h2></div><div class="text-right"><p class="text-[13px] font-medium text-on-surface-variant opacity-60">Thursday</p><p class="text-[17px] font-semibold text-on-surface tabular-nums">Oct 24, 2:45 PM</p></div></div>
+<!-- Student Card -->
+<div class="bg-white rounded-[28px] p-6 flex flex-col gap-6 relative overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.04)] border-[0.5px] border-black/5 animate-fade-in-up delay-100">
+<div class="flex items-center gap-5 relative z-10">
+<div class="w-16 h-16 rounded-full overflow-hidden bg-primary-container shrink-0 shadow-sm">
+<img class="w-full h-full object-cover" data-alt="A portrait photo of a cheerful young boy of Indian descent, around 7 years old, wearing a crisp school uniform. He has a warm smile and bright eyes. The background is slightly blurred showing a soft, out-of-focus school classroom setting. Lighting is natural and bright, conveying a sense of safety and happiness. Premium, sharp, vivid colors." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBctakvQxJWf3J5eSvsslQVTFjEWj1-QT57UEEQytMYvnV_-4QzCAjTzWzYFJH8TuTtB_UCHzC7QDM1LQpN9dxOGBoYh3VHOvoJEUjrgMsoJp9J5ggyhjUGuwAz2o6UkN9DYGBzKYhGXNtHNHtTiXfgGA-TccRT_voPqECresbLbRLg3fG9f-a-tp9kW2q8pjSBjM817Wexisx5DUTL6h8mLjBh2OvZLUful6HC1RwM5A2QmWdRJfC-KA"/>
+</div>
+<div class="flex-1">
+<h2 class="font-headline-lg-mobile text-[22px] text-on-surface font-bold tracking-tight">Aarav</h2>
+<div class="flex items-center gap-2 mt-1.5">
+<span class="inline-flex items-center px-2.5 py-1 rounded-md bg-surface-container-low font-label-sm text-[11px] text-on-surface-variant font-semibold tracking-wide">Grade 2</span>
+<span class="inline-flex items-center px-2.5 py-1 rounded-md bg-surface-container-low font-label-sm text-[11px] text-on-surface-variant font-semibold tracking-wide">Class Tulip</span>
+</div>
+</div>
+</div>
+<!-- Dismissal Request Section -->
+<div class="flex flex-col items-center justify-center relative z-10 w-full pt-2 border-t border-surface-container-high">
+<button class="w-full bg-[#007AFF] hover:bg-[#0062CC] text-white text-[17px] font-bold py-4 rounded-full shadow-lg flex items-center justify-center gap-2 transition-all duration-300 active:scale-[0.96]" id="request-btn">
+<span class="material-symbols-outlined text-[20px]">directions_walk</span>
+        Request Dismissal
+      </button>
+<!-- Hidden QR Code Section (Revealed on Click) -->
+<div class="hidden flex-col items-center gap-4 w-full py-2 opacity-0 transform scale-95 transition-all duration-500 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] origin-top" id="qr-section">
+<div class="flex items-center justify-center gap-2 mb-2 bg-amber-50 px-3 py-1.5 rounded-full">
+<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+<span class="font-label-sm text-[11px] text-amber-700 font-bold tracking-wider uppercase">Awaiting Teacher</span>
+</div>
+<div class="bg-white p-4 rounded-2xl shadow-[0_0_20px_rgba(0,0,0,0.05)] border border-surface-container relative group">
+<!-- Decorative corners -->
+<div class="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-[#2D3FE2] rounded-tl-md"></div>
+<div class="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-[#2D3FE2] rounded-tr-md"></div>
+<div class="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-[#2D3FE2] rounded-bl-md"></div>
+<div class="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-[#2D3FE2] rounded-br-md"></div>
+<img class="w-40 h-40 object-contain rounded-lg" data-alt="A high contrast, scannable QR code generated in sharp black and white. It is perfectly square and highly legible, intended for scanning at a school gate. The design is strictly functional, premium tech aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCjc81fpXkBnCn2s_OvnA2VIODb744wZ1N6WBb4fA_KVbLwNxznLdtLzrj2HryRfT6mNy_ANtaN4d9YE26yaJvsfnpYXYHUCBSwRvkKZ7C9ZtB4nlgeh3VljAurAuBn-LATOUbccPBJsKnqXLEAjTAEzvweWFXX1kdakveln64JIuxIUqpZJlb9icSa5nR0LNydpJ-8-d0gAMFUsXtEncSl2vsYxwO1TsTChYFlrivYkb6cBUDMKhr1Xw"/>
+<!-- Scanning line animation -->
+<div class="absolute top-4 left-4 right-4 h-[2px] bg-[#2D3FE2]/50 blur-[1px] animate-[scan_3s_ease-in-out_infinite]"></div>
+</div>
+<p class="font-label-sm text-sm text-on-surface-variant flex items-center gap-1.5 mt-2">
+<span class="material-symbols-outlined text-[18px]">timer</span>
+          Expires in <span class="font-headline-md text-lg text-on-surface ml-1 tabular-nums" id="countdown">01:42</span>
+</p>
+</div>
+</div>
+<!-- Decorative background element -->
+<div class="absolute -top-12 -right-12 w-40 h-40 bg-surface-variant rounded-full blur-3xl opacity-30 z-0 pointer-events-none"></div>
+</div>
+<!-- Additional Info Cards -->
+<div class="grid grid-cols-2 gap-4 animate-fade-in-up delay-200">
+<div class="bg-white rounded-[24px] p-5 flex flex-col gap-3 shadow-[0_8px_30px_rgba(0,0,0,0.03)] border-[0.5px] border-black/5">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[#2D3FE2] text-[20px]">directions_car</span>
+</div>
+<div>
+<h3 class="font-label-sm text-[11px] uppercase tracking-wider text-on-surface-variant mb-1">Pickup Method</h3>
+<p class="font-label-md text-[15px] font-semibold text-on-surface">Parent Pickup</p>
+</div>
+</div>
+<div class="bg-white rounded-[24px] p-5 flex flex-col gap-3 shadow-[0_8px_30px_rgba(0,0,0,0.03)] border-[0.5px] border-black/5">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[#2D3FE2] text-[20px]">contact_mail</span>
+</div>
+<div>
+<h3 class="font-label-sm text-[11px] uppercase tracking-wider text-on-surface-variant mb-1">Authorized</h3>
+<p class="font-label-md text-[15px] font-semibold text-on-surface">Rohit Sharma</p>
+</div>
+</div>
+</div>
+</div>
+<style>
+  @keyframes scan {
+    0%, 100% { transform: translateY(0); opacity: 0; }
+    10% { opacity: 1; }
+    50% { transform: translateY(140px); }
+    90% { opacity: 1; }
+  }
+</style>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const requestBtn = document.getElementById('request-btn');
+    const qrSection = document.getElementById('qr-section');
+    const countdownEl = document.getElementById('countdown');
+    
+    let timeLeft = 102; // 1:42 in seconds
+    let timerId;
+
+    function updateTimer() {
+      const minutes = Math.floor(timeLeft / 60);
+      const seconds = timeLeft % 60;
+      countdownEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      
+      if (timeLeft > 0) {
+        timeLeft--;
+      } else {
+        clearInterval(timerId);
+        countdownEl.classList.add('text-error');
+      }
+    }
+
+    requestBtn.addEventListener('click', () => {
+      // Hide button
+      requestBtn.classList.add('hidden');
+      
+      // Show QR section
+      qrSection.classList.remove('hidden');
+      
+      // Trigger animation after a tiny delay for DOM to register 'flex' instead of 'hidden'
+      setTimeout(() => {
+        qrSection.classList.remove('opacity-0', 'scale-95');
+        qrSection.classList.add('opacity-100', 'scale-100');
+      }, 50);
+
+      // Start countdown
+      timerId = setInterval(updateTimer, 1000);
+    });
+  });
+</script></main><nav class="fixed bottom-0 inset-x-0 z-50 pb-safe bg-white/80 backdrop-blur-[25px] border-t-[0.5px] border-black/10 shadow-none" data-active-classes="text-primary font-bold"><div class="flex justify-around items-center h-[88px] px-2"><a aria-current="page" class="flex flex-col items-center justify-center gap-1 w-20 h-full transition-all text-[#007AFF]" data-path="parent-dashboard" href="#"><div class="w-12 h-8 rounded-full bg-[#2D3FE2]/10 flex items-center justify-center mb-0.5"><span class="material-symbols-outlined font-medium" style="font-variation-settings: 'FILL' 1">dashboard</span></div><span class="font-label-sm text-[11px] font-semibold">Dashboard</span></a><a class="flex flex-col items-center justify-center gap-1 w-20 h-full text-on-surface-variant hover:text-on-surface transition-all" data-path="dismissal-history" href="#"><div class="w-12 h-8 rounded-full flex items-center justify-center mb-0.5"><span class="material-symbols-outlined font-medium">history</span></div><span class="font-label-sm text-[11px] font-medium">History</span></a><a class="flex flex-col items-center justify-center gap-1 w-20 h-full text-on-surface-variant hover:text-on-surface transition-all" data-path="parent-profile" href="#"><div class="w-12 h-8 rounded-full flex items-center justify-center mb-0.5"><span class="material-symbols-outlined font-medium">account_circle</span></div><span class="font-label-sm text-[11px] font-medium">Profile</span></a></div></nav></body></html>

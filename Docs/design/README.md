@@ -1,43 +1,70 @@
 # DismissFlow — Design
 
-This folder holds the source-of-truth design assets (Stitch exports) and
-notes for translating them into the Next.js implementation.
+This folder documents the visual system for the DismissFlow web app. The
+direction is a hybrid: **Revora/Revora's command-deck structure** (mono
+metadata, hairline 1px borders, status pulses, capability grid) +
+**Kernel Agent's motion language** (cursor glow, noise, Framer Motion
+reveals, bento layout, gradient-xy) + a **soft kernel-blue accent** that
+reads "school-appropriate" without the aggression of mars-red.
 
 ## Source of truth
 
-The visual language is owned by **Stitch** (`DismissFlow Digital Pickup
-System`, project id `15289458904595449903`). Each screen is exported as a
-zip containing:
+The visual language is owned by two reference projects on this machine:
 
-- `code.html` — the generated markup, kept as a reference for layout and
-  animation intent. **Do not paste it directly into the app.**
-- `DESIGN.md` — color tokens, typography scale, spacing, elevation, and
-  component guidance. The `tailwind.config.ts` is generated from this file.
-- `screen.png` — the rendered screen, used for visual diffs.
+- `friday/ares-website` — Revora / Ares. Editorial brutalist. Color
+  tokens, type stack, command-deck pattern, capability grid. (Don't
+  borrow the indigo or the iOS direction — they're a different project.)
+- `Desktop/kernalagent/Frontend` — Kernel Agent by ShawnTheCreator. Bento
+  grid, cursor glow, cubic-bezier reveals, Lenis smooth scroll, Framer
+  Motion page transitions. Pure-black ground plane.
 
-## How a Stitch screen becomes a page
+Both are dark. The DismissFlow ground plane is `#080706` (Revora ink) with
+`#0A0A0A` cards (Kernel). The accent is `#3B82F6` (Kernel blue) — calm,
+trustworthy, and not the educational-toy pastels of a child app.
 
-1. Export the screen zip from Stitch and extract it into
-   `Docs/design/stitch-exports/<screen-slug>/`.
-2. Update `tailwind.config.ts` and `app/globals.css` if the design system
-   changes (new tokens, type sizes, motion).
-3. Build the page under `app/<role>/page.tsx` using the existing primitives
-   in `components/ui/`. Reuse `<NavHeader />`, `<TabBar />`, `<Icon />`,
-   `<StatusPill />`, `<PrimaryButton />`, `<Avatar />` instead of inventing
-   new shapes.
-4. Wire live data to the Supabase client in `lib/supabase/client.ts` and the
-   dismissal state types in `lib/dismissal/state.ts`. The browser never
-   decides QR validity, authorization, or state transitions — that is the
-   Edge Function's job. See `Docs/architecture.md` §5.1.
+## Type stack
 
-## iOS feel
+- **Display**: Barlow Condensed, 600/700/800, all-caps, tight tracking.
+  Used for page titles, hero text, command-deck headers.
+- **Body**: Inter, 400/500/600. Used for content.
+- **Mono**: Geist Mono, 7–9pt caps. Used for status, IDs, timestamps,
+  section kickers, metadata.
 
-The whole app leans iOS-first: SF system font stack (with Plus Jakarta Sans
-as the web fallback), 1px hairlines, frosted glass chrome via `.glass`,
-spring tap affordance via `.tap-spring`, iOS HIG–aligned type scale
-(`text-ios-large-title` … `text-ios-caption-2`), 88pt bottom tab bar with
-safe-area insets, and `overscroll-behavior-y: contain` for rubber-band
-scrolling.
+## Color tokens
+
+| Token | Hex | Use |
+| ----- | --- | --- |
+| `ink` | `#080706` | Ground plane |
+| `panel` | `#0A0A0A` | Cards, panels |
+| `panel-2` | `#14110F` | Elevated panels (Revora) |
+| `bone` | `#F1E8DC` | Primary text (Revora) |
+| `muted` | `#91877E` | Secondary text |
+| `line` | `rgba(241,232,220,0.14)` | Hairline borders |
+| `line-hot` | `rgba(59,130,246,0.56)` | Active borders |
+| `accent` | `#3B82F6` | Primary accent (Kernel blue) |
+| `accent-deep` | `#1D4ED8` | Accent hover |
+| `success` | `#B7EF42` | Live / dismissed (Revora green) |
+| `danger` | `#FF3B20` | Rejected / invalid (Revora mars) |
+
+## Motion
+
+- **Reveal**: `cubic-bezier(0.16, 1, 0.3, 1)`, 0.6s, with optional stagger.
+- **Hover lift**: `translateY(-2px)` over 200ms.
+- **Cursor glow**: 600px radial following the pointer, low opacity.
+- **Noise overlay**: fixed SVG turbulence at 0.04 opacity.
+- **Status pulse**: mono dot with `box-shadow: 0 0 12px <color>`.
+- **Marquee / signal strip**: optional for the live request ticker.
+
+## How a new screen becomes a page
+
+1. Decide the role (`parent/`, `gate/`, `teacher/`, `admin/`) per the
+   architecture.
+2. Pick a layout primitive: `CommandDeck` (multi-pane with mono header),
+   `BentoGrid` (asymmetric cards), or `Stack` (vertical capability list).
+3. Compose with `Panel`, `MonoLabel`, `StatusPill`, `PrimaryButton`, and
+   `SectionShell` from `components/ui/`. Don't invent new shapes.
+4. Wire to `lib/supabase/client.ts` + the state machine in
+   `lib/dismissal/state.ts`. The browser never decides validity.
 
 ## Sibling docs
 

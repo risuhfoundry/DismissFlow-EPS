@@ -1,8 +1,7 @@
 import type { Config } from "tailwindcss";
 
-// DismissFlow design tokens — translated from Docs/design/DESIGN.md.
-// Source of truth: the Stitch export, which is itself derived from the PRD
-// visual direction. Keep this in sync with DESIGN.md if the system is updated.
+// DismissFlow design tokens — Revora structure + Kernel motion + blue accent.
+// Source: Docs/design/README.md. Update that file when the system changes.
 
 const config: Config = {
   content: [
@@ -13,94 +12,101 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#F8FAFC",
-        surface: "#FFFFFF",
-        "surface-muted": "#EFF4FF",
-        "surface-container": "#E5EEFF",
-        hairline: "#E2E8F0",
-        ink: {
-          DEFAULT: "#0B1C30",
-          muted: "#454655",
-          subtle: "#64748B"
+        ink: "#080706",
+        panel: {
+          DEFAULT: "#0A0A0A",
+          alt: "#14110F",
+          high: "#1B1714"
         },
-        primary: {
-          DEFAULT: "#2D3FE2",
-          soft: "#DFE0FF"
+        bone: "#F1E8DC",
+        muted: "#91877E",
+        line: "rgba(241,232,220,0.14)",
+        "line-hot": "rgba(59,130,246,0.56)",
+        accent: {
+          DEFAULT: "#3B82F6",
+          deep: "#1D4ED8",
+          soft: "rgba(59,130,246,0.12)",
+          glow: "rgba(59,130,246,0.25)"
         },
-        // Semantic status — used sparingly per the design system.
-        success: "#10B981",
-        warning: "#F59E0B",
-        danger: "#BA1A1A"
+        success: "#B7EF42",
+        danger: "#FF3B20",
+        warn: "#FEBC2E"
       },
       fontFamily: {
-        // iOS-first system stack; Plus Jakarta Sans is the design system's
-        // web fallback for Android/desktop where SF is unavailable.
-        sans: [
-          "-apple-system",
-          "BlinkMacSystemFont",
-          "SF Pro Text",
-          "SF Pro Display",
+        // Revora display, Inter body, Geist Mono metadata.
+        display: [
+          '"Barlow Condensed"',
+          '"Arial Narrow"',
           "ui-sans-serif",
           "system-ui",
-          "Plus Jakarta Sans",
+          "sans-serif"
+        ],
+        sans: [
+          "Inter",
+          "ui-sans-serif",
+          "system-ui",
+          "-apple-system",
+          "BlinkMacSystemFont",
           "Segoe UI",
           "Roboto",
-          "Helvetica Neue",
-          "Arial",
           "sans-serif"
+        ],
+        mono: [
+          '"Geist Mono"',
+          '"JetBrains Mono"',
+          "Consolas",
+          "ui-monospace",
+          "monospace"
         ]
       },
       fontSize: {
-        // iOS HIG–aligned scale. Sizes in pt, line-heights tight.
-        // Large Title 34, Title 1 28, Title 2 22, Title 3 20,
-        // Headline 17/semibold, Body 17, Callout 16, Subhead 15,
-        // Footnote 13, Caption 1 12, Caption 2 11.
-        "ios-large-title": ["2.125rem", { lineHeight: "1.15", letterSpacing: "0.37px", fontWeight: "700" }],
-        "ios-title-1": ["1.75rem", { lineHeight: "1.2", letterSpacing: "0.36px", fontWeight: "700" }],
-        "ios-title-2": ["1.375rem", { lineHeight: "1.25", letterSpacing: "0.35px", fontWeight: "700" }],
-        "ios-title-3": ["1.25rem", { lineHeight: "1.3", letterSpacing: "0.34px", fontWeight: "600" }],
-        "ios-headline": ["1.0625rem", { lineHeight: "1.35", letterSpacing: "-0.41px", fontWeight: "600" }],
-        "ios-body": ["1.0625rem", { lineHeight: "1.4", letterSpacing: "-0.41px", fontWeight: "400" }],
-        "ios-callout": ["1rem", { lineHeight: "1.35", letterSpacing: "-0.32px", fontWeight: "400" }],
-        "ios-subhead": ["0.9375rem", { lineHeight: "1.35", letterSpacing: "-0.24px", fontWeight: "400" }],
-        "ios-footnote": ["0.8125rem", { lineHeight: "1.4", letterSpacing: "-0.08px", fontWeight: "400" }],
-        "ios-caption-1": ["0.75rem", { lineHeight: "1.35", letterSpacing: "0", fontWeight: "500" }],
-        "ios-caption-2": ["0.6875rem", { lineHeight: "1.3", letterSpacing: "0.07px", fontWeight: "500" }]
+        // Display scale (Barlow Condensed, all-caps).
+        "display-xl": ["clamp(70px,8.7vw,142px)", { lineHeight: "0.745", letterSpacing: "-0.047em", fontWeight: "800" }],
+        "display-lg": ["clamp(62px,7vw,112px)", { lineHeight: "0.8", letterSpacing: "-0.035em", fontWeight: "750" }],
+        "display-md": ["clamp(40px,4.5vw,64px)", { lineHeight: "0.85", letterSpacing: "-0.03em", fontWeight: "700" }],
+        // Mono scale — 7–11pt is the working range for metadata.
+        "mono-xs": ["7px", { lineHeight: "1.4", letterSpacing: "0.12em" }],
+        "mono-sm": ["9px", { lineHeight: "1.4", letterSpacing: "0.1em" }],
+        "mono-md": ["11px", { lineHeight: "1.4", letterSpacing: "0.08em" }]
       },
       borderRadius: {
-        sm: "0.5rem",
-        DEFAULT: "0.75rem",
-        md: "1rem",
-        lg: "1.5rem",
-        xl: "1.75rem",
-        "2xl": "1.75rem",
-        "3xl": "1.75rem"
+        // Kernel-style cards, but tighter.
+        DEFAULT: "0.5rem",
+        sm: "0.25rem",
+        md: "0.75rem",
+        lg: "1rem",
+        xl: "1.25rem"
       },
       boxShadow: {
-        // Soft-ambient depth per DESIGN.md §Elevation.
-        card: "0 10px 40px rgba(0,0,0,0.04)",
-        "card-soft": "0 8px 30px rgba(0,0,0,0.03)",
-        ambient: "0 10px 15px -3px rgba(0,0,0,0.05)"
+        // Subtle ambient + accent glow.
+        panel: "0 20px 60px rgba(0,0,0,0.35)",
+        ambient: "0 10px 15px -3px rgba(0,0,0,0.05)",
+        "accent-glow": "0 0 30px rgba(59,130,246,0.25)"
       },
       keyframes: {
-        "fade-in-up": {
-          "0%": { opacity: "0", transform: "translateY(20px)" },
+        "reveal-up": {
+          "0%": { opacity: "0", transform: "translateY(30px)" },
           "100%": { opacity: "1", transform: "translateY(0)" }
+        },
+        "pulse-dot": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.4" }
         },
         scan: {
           "0%, 100%": { transform: "translateY(0)", opacity: "0" },
           "10%, 90%": { opacity: "1" },
           "50%": { transform: "translateY(160px)", opacity: "1" }
         },
-        "soft-pulse": {
-          "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.55" }
+        "gradient-xy": {
+          "0%, 100%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" }
         }
       },
       animation: {
-        "fade-in-up": "fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+        "reveal-up": "reveal-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+        "pulse-dot": "pulse-dot 1.6s ease-in-out infinite",
         scan: "scan 3s ease-in-out infinite",
-        "soft-pulse": "soft-pulse 1.8s ease-in-out infinite"
+        "gradient-xy": "gradient-xy 6s ease infinite"
       }
     }
   },

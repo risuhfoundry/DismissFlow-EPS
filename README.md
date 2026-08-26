@@ -51,24 +51,45 @@ The full architecture — state machine, QR security lifecycle, RLS scopes, real
 
 ---
 
+## Design direction
+
+**Revora structure + Kernel motion + soft kernel-blue accent.** Dark, technical, command-deck feel — not a child app, not AI slop. Revora gives the editorial mono metadata, hairline 1px borders, and capability-grid layout; Kernel Agent gives the Framer Motion reveals, Lenis smooth scroll, cursor glow, and bento card motion. Tokens and patterns are documented in [`Docs/design/README.md`](Docs/design/README.md).
+
+---
+
 ## Repository layout
 
 ```
 DismissFlow-EPS/
 ├── Docs/
-│   ├── PRD.md            # Product requirements (source of truth)
-│   └── architecture.md   # Architecture specification (this build's blueprint)
-├── LICENSE
+│   ├── PRD.md                # Product requirements (source of truth)
+│   ├── architecture.md       # Architecture specification
+│   └── design/               # Design system docs
+├── app/                      # Next.js App Router
+│   ├── layout.tsx            # Root layout, fonts, smooth scroll, cursor glow
+│   ├── globals.css           # Design tokens (CSS) + motion utilities
+│   ├── page.tsx              # Landing / role selection
+│   └── parent/               # Parent portal scaffold
+├── components/
+│   ├── effects/              # CursorGlow, SmoothScroll (Lenis)
+│   └── ui/                   # Panel, MonoLabel, StatusPill, TopNav, Icon, PrimaryButton
+├── lib/
+│   ├── supabase/             # Browser client (RLS-constrained)
+│   ├── auth/                 # Session / role guard types
+│   └── dismissal/            # State types (matches §7)
+├── tailwind.config.ts        # Color tokens, fonts, motion
+├── next.config.js
+├── package.json
 └── README.md
 ```
 
-> **Status: greenfield.** As of this commit the repository holds only documentation and the license. There is no Next.js app, no Supabase schema, and no Edge Functions yet. The `Docs/` pair is the specification the implementation must follow; `Docs/PRD.md` is the source of truth for *what* we are building, and `Docs/architecture.md` is the blueprint for *how*.
+> **Status: scaffolded.** As of this commit the parent portal is the first end-to-end page wired with real state, animations, and the design system. Gate, Teacher, and Admin portals are next. The Supabase schema, Edge Functions, and RLS are not yet implemented — see `Docs/architecture.md` for the blueprint.
 
 ---
 
 ## Tech stack
 
-- **Frontend:** Next.js (App Router) + TypeScript, Tailwind CSS + shadcn/ui
+- **Frontend:** Next.js (App Router) + TypeScript, Tailwind CSS, Framer Motion, Lenis
 - **Backend (all of it):** Supabase — Auth, PostgreSQL, RLS, Realtime, Edge Functions
 - **Hosting:** Vercel (web app) + Supabase (backend), GitHub for source and CI
 
@@ -76,16 +97,15 @@ No separate Node server. No native client for the prototype.
 
 ---
 
-## Getting started (implementation phase)
+## Getting started
 
-These steps come once the build begins — the scaffolding is not present yet:
+```bash
+cd DismissFlow-EPS
+npm install
+npm run dev
+```
 
-1. Create the Supabase project and apply `supabase/migrations/*.sql` (schema + RLS).
-2. Seed the 18-student Nursery/Tulip roster (admission numbers as `TEXT` to preserve leading zeroes).
-3. Deploy the Edge Functions: `createDismissalRequest`, `scanQr`, `approveDismissal`, `rejectDismissal`, `cancelDismissal`.
-4. Run the Next.js app locally with `.env.local` (anon key public, service-role key server-only).
-
-See `Docs/architecture.md` §16 for the full deployment topology and environment variables.
+The parent portal renders without env vars. To wire it to a real Supabase project, copy `.env.example` to `.env.local` and fill in `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 
 ---
 

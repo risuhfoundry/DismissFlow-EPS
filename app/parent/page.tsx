@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { Icon } from "@/components/ui/Icon";
 import { MonoLabel } from "@/components/ui/MonoLabel";
@@ -9,16 +10,22 @@ import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { TopNav } from "@/components/ui/TopNav";
 import type { DismissalStatus } from "@/lib/dismissal/state";
-
-const PARENT = { name: "Priya Sharma" };
-const STUDENT = { name: "Aarav", grade: "Grade 2", className: "Tulip", adm: "040" };
-const INFO = { method: "Parent Pickup", authorized: "Rohit Sharma" };
+import { getSessionUser } from "@/lib/auth/session";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { DismissalQr } from "@/lib/qr/generate";
 
 const NAV_LINKS = [
   { label: "Dashboard", href: "/parent" },
   { label: "History", href: "/parent/history" },
   { label: "Profile", href: "/parent/profile" }
 ];
+
+type StudentView = {
+  name: string;
+  admissionNo: string;
+  className: string;
+  section: string;
+};
 
 function useCountdown(expiresAt: Date | null) {
   const [now, setNow] = useState(() => Date.now());
@@ -41,12 +48,15 @@ function Eyebrow() {
   return (
     <span className="eyebrow">
       <i />
-      01 / PARENT PORTAL <span className="ml-1 px-1.5 py-0.5 border border-line text-mono-xs">V0.1</span>
+      01 / PARENT PORTAL{" "}
+      <span className="ml-1 px-1.5 py-0.5 border border-line text-mono-xs">
+        V0.1
+      </span>
     </span>
   );
 }
 
-function WelcomeRow() {
+function WelcomeRow({ parentName }: { parentName: string }) {
   const now = new Date();
   return (
     <motion.div
@@ -58,7 +68,7 @@ function WelcomeRow() {
       <div>
         <Eyebrow />
         <h2 className="font-display text-display-md uppercase text-bone mt-4">
-          {PARENT.name}
+          {parentName}
         </h2>
       </div>
       <div className="text-right">
@@ -79,13 +89,21 @@ function WelcomeRow() {
 }
 
 function StudentCard({
+  student,
   status,
   onRequest,
-  countdown
+  requesting,
+  error,
+  countdown,
+  qrToken
 }: {
+  student: StudentView | null;
   status: DismissalStatus;
   onRequest: () => void;
+  requesting: boolean;
+  error: string | null;
   countdown: string;
+  qrToken: string | null;
 }) {
   const showQr = status === "REQUESTED" || status === "AWAITING_TEACHER";
 
@@ -114,24 +132,44 @@ function StudentCard({
                 Student
               </MonoLabel>
               <h3 className="font-display text-3xl uppercase text-bone mt-1 leading-none">
-                {STUDENT.name}
+                {student?.name ?? "—"}
               </h3>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Spec label="GRADE" value={STUDENT.grade} />
-                <Spec label="CLASS" value={STUDENT.className} />
-                <Spec label="ADM" value={STUDENT.adm} />
+                <Spec label="GRADE" value={student?.section ?? "—"} />
+                <Spec label="CLASS" value={student?.className ?? "—"} />
+                <Spec label="ADM" value={student?.admissionNo ?? "—"} />
               </div>
             </div>
           </div>
 
           <div className="flex flex-col items-stretch gap-3 min-w-[260px]">
-            {!showQr ? (
-              <PrimaryButton onClick={onRequest} aria-label="Request dismissal">
-                <Icon name="walk" className="h-4 w-4" strokeWidth={2} />
-                Request Dismissal
-              </PrimaryButton>
+            {showQr ? (
+              <QrReveal status={status} countdown={countdown} qrToken={qrToken} />
             ) : (
-              <QrReveal status={status} countdown={countdown} />
+              <>
+                <PrimaryButton
+                  onClick={onRequest}
+                  disabled={requesting}
+                  aria-label="Request dismissal"
+                >
+                  {requesting ? (
+                    <>
+                      <Icon name="timer" className="h-4 w-4" strokeWidth={2} />
+                      Requesting…
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="walk" className="h-4 w-4" strokeWidth={2} />
+                      Request Dismissal
+                    </>
+                  )}
+                </PrimaryButton>
+                {error && (
+                  <p className="text-mono-sm font-mono uppercase tracking-widest text-danger">
+                    {error}
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -155,10 +193,12 @@ function Spec({ label, value }: { label: string; value: string }) {
 
 function QrReveal({
   status,
-  countdown
+  countdown,
+  qrToken
 }: {
   status: DismissalStatus;
   countdown: string;
+  qrToken: string | null;
 }) {
   return (
     <motion.div
@@ -175,7 +215,7 @@ function QrReveal({
       </div>
 
       <div className="relative bg-bone p-3">
-        {/* Mono hairline corner brackets — replaces the indigo brackets. */}
+        {/* Mono hairline corner brackets — matches the portal system. */}
         {[
           "top-0 left-0 border-t border-l",
           "top-0 right-0 border-t border-r",
@@ -189,16 +229,22 @@ function QrReveal({
           />
         ))}
 
-        <div
-          className="h-44 w-full bg-ink"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 1px 1px, #F1E8DC 1.2px, transparent 1.4px)",
-            backgroundSize: "8px 8px"
-          }}
-          role="img"
-          aria-label="Single-use dismissal QR code"
-        />
+        {qrToken ? (
+          <div className="aspect-square w-full">
+            <DismissalQr token={qrToken} />
+          </div>
+        ) : (
+          <div
+            className="h-44 w-full bg-ink"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 1px 1px, #F1E8DC 1.2px, transparent 1.4px)",
+              backgroundSize: "8px 8px"
+            }}
+            role="img"
+            aria-label="Single-use dismissal QR code"
+          />
+        )}
 
         {/* Scan line — blue, sweeps top to bottom. */}
         <div className="pointer-events-none absolute left-3 right-3 top-3 h-[2px] bg-accent shadow-accent-glow animate-scan" />
@@ -214,10 +260,10 @@ function QrReveal({
 
 function InfoGrid() {
   const items = [
-    { icon: "car" as const, label: "Pickup Method", value: INFO.method },
-    { icon: "user" as const, label: "Authorized", value: INFO.authorized },
+    { icon: "car" as const, label: "Pickup Method", value: "Parent Pickup" },
+    { icon: "user" as const, label: "Authorized", value: "Linked Guardian" },
     { icon: "history" as const, label: "Today", value: "02 dismissals" },
-    { icon: "settings" as const, label: "Class", value: STUDENT.className }
+    { icon: "settings" as const, label: "Class", value: "Tulip" }
   ];
 
   return (
@@ -271,16 +317,144 @@ function Footer() {
 }
 
 export default function ParentDashboardPage() {
+  const [parentName, setParentName] = useState("Parent");
+  const [student, setStudent] = useState<StudentView | null>(null);
   const [status, setStatus] = useState<DismissalStatus>("IDLE");
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
+  const [qrToken, setQrToken] = useState<string | null>(null);
+  const [requesting, setRequesting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [authNote, setAuthNote] = useState<string | null>(null);
+
   const countdown = useCountdown(expiresAt);
 
-  function handleRequest() {
-    // Real implementation invokes createDismissalRequest Edge Function.
-    // Docs/architecture.md §11.1.
-    setStatus("AWAITING_TEACHER");
-    setExpiresAt(new Date(Date.now() + 2 * 60 * 1000));
+  // Load the real authenticated parent, their linked student, and any active
+  // request. Authorization/identity are resolved server-side; this only reads
+  // what RLS already permits for the signed-in user.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const {
+          data: { user }
+        } = await supabase.auth.getUser();
+        if (!user) {
+          setAuthNote("Sign in to request dismissal.");
+          return;
+        }
+
+        const sessionUser = await getSessionUser(supabase);
+        if (!sessionUser || sessionUser.role !== "parent") {
+          setAuthNote("This portal is for parents only.");
+          return;
+        }
+        const linkedStudentId = sessionUser.linkedStudentId;
+        if (!linkedStudentId) {
+          setAuthNote("No linked student for this account.");
+          return;
+        }
+        if (user.email) setParentName(user.email);
+
+        const { data: stu } = await supabase
+          .from("students")
+          .select("student_id, name, admission_no, class_id")
+          .eq("student_id", linkedStudentId)
+          .maybeSingle();
+
+        let className = "Tulip";
+        let section = "Nursery";
+        if (stu?.class_id) {
+          const { data: cls } = await supabase
+            .from("classes")
+            .select("class_name, section")
+            .eq("class_id", stu.class_id)
+            .maybeSingle();
+          if (cls) {
+            className = cls.class_name ?? className;
+            section = cls.section ?? section;
+          }
+        }
+        if (cancelled) return;
+        if (stu) {
+          setStudent({
+            name: stu.name,
+            admissionNo: stu.admission_no,
+            className,
+            section
+          });
+        }
+
+        // A previously created request (if any) — token is server-only and was
+        // returned only at creation time, so we surface status but not a QR.
+        const { data: active } = await supabase
+          .from("dismissal_requests")
+          .select("request_id, status, expires_at")
+          .eq("student_id", linkedStudentId)
+          .in("status", ["REQUESTED", "AWAITING_TEACHER"])
+          .maybeSingle();
+        if (active && !cancelled) {
+          setStatus(active.status as DismissalStatus);
+          if (active.expires_at) setExpiresAt(new Date(active.expires_at));
+        }
+      } catch {
+        if (!cancelled) {
+          setAuthNote(
+            "Unable to load dismissal data. Supabase may not be configured."
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function handleRequest() {
+    if (requesting) return;
+    setRequesting(true);
+    setError(null);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      // The function derives the student/role server-side; the client sends no
+      // student_id, parent_id, or status (Docs/architecture.md §11.1).
+      const { data, error: fnError } = await supabase.functions.invoke(
+        "create-dismissal-request",
+        { method: "POST", body: {} }
+      );
+      if (fnError) throw fnError;
+      if (!data || typeof data.token !== "string") {
+        throw new Error("Malformed response");
+      }
+      setStatus("REQUESTED");
+      setExpiresAt(new Date(data.expires_at));
+      setQrToken(data.token); // returned exactly once to this parent
+    } catch (e: unknown) {
+      const err = e as {
+        code?: string | number;
+        status?: number;
+        context?: { status?: number };
+        message?: string;
+      };
+      let code = "";
+      try {
+        const parsed = JSON.parse(err?.message ?? "{}");
+        code = parsed?.code;
+      } catch {
+        /* ignore */
+      }
+      const status = err?.context?.status ?? err?.status;
+      if (code === "CONFLICT" || status === 409) {
+        setError("An active dismissal request already exists for this student.");
+      } else {
+        setError("Could not create the dismissal request. Please try again.");
+      }
+    } finally {
+      setRequesting(false);
+    }
   }
+
+  const isActive = status === "REQUESTED" || status === "AWAITING_TEACHER";
 
   return (
     <>
@@ -297,16 +471,40 @@ export default function ParentDashboardPage() {
       />
 
       <main className="pt-24 pb-16 section-shell">
-        <WelcomeRow />
-        <div className="mt-10 grid gap-8">
-          <StudentCard
-            status={status}
-            onRequest={handleRequest}
-            countdown={countdown}
-          />
-          <InfoGrid />
-          <Footer />
-        </div>
+        <WelcomeRow parentName={parentName} />
+        {authNote && (
+          <div className="mt-10">
+            <Panel withTopBar topBar={<span>00 / ACCESS</span>}>
+              <div className="p-7 flex flex-col gap-5">
+                <p className="font-mono text-mono-sm uppercase tracking-widest text-muted">
+                  {authNote}
+                </p>
+                <Link
+                  href="/login"
+                  className="h-12 px-5 inline-flex items-center justify-center gap-3 bg-accent text-white font-mono uppercase tracking-widest text-mono-sm font-semibold shadow-accent-glow w-fit hover:-translate-y-0.5 hover:bg-accent-deep transition-all"
+                >
+                  <Icon name="arrow.right" className="h-4 w-4" strokeWidth={2} />
+                  Sign In
+                </Link>
+              </div>
+            </Panel>
+          </div>
+        )}
+        {!authNote && (
+          <div className="mt-10 grid gap-8">
+            <StudentCard
+              student={student}
+              status={status}
+              onRequest={handleRequest}
+              requesting={requesting}
+              error={error}
+              countdown={countdown}
+              qrToken={isActive ? qrToken : null}
+            />
+            <InfoGrid />
+            <Footer />
+          </div>
+        )}
       </main>
     </>
   );

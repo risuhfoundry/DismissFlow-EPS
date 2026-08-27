@@ -1,0 +1,5 @@
+# Placeholder so the functions/ directory is tracked by git.
+# Edge Functions are NOT created in this phase (Phase 2 = foundation only).
+# See Docs/architecture.md §11 for the planned functions:
+#   create-dismissal-request, scan-qr, approve-dismissal,
+#   reject-dismissal, cancel-dismissal.

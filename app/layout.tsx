@@ -18,8 +18,6 @@ const display = Barlow_Condensed({
   display: "swap"
 });
 
-const mono = GeistMono;
-
 export const metadata: Metadata = {
   title: "DismissFlow",
   description: "Web-based school e-dismissal & digital pickup system."
@@ -38,7 +36,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark noise-overlay">
       <body
-        className={`${inter.variable} ${display.variable} ${mono.variable} font-sans antialiased min-h-screen bg-ink text-bone`}
+        className={`${inter.variable} ${display.variable} ${GeistMono.variable} font-sans antialiased min-h-screen bg-ink text-bone`}
       >
         <SmoothScroll />
         <CursorGlow />

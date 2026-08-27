@@ -41,7 +41,7 @@
 @layer utilities {
   /* Mono caps eyebrow — Revora-style. */
   .eyebrow {
-    font-family: var(--font-mono, "Geist Mono"), ui-monospace, monospace;
+    font-family: var(--font-geist-mono, "Geist Mono"), ui-monospace, monospace;
     font-size: 9px;
     letter-spacing: 0.12em;
     text-transform: uppercase;

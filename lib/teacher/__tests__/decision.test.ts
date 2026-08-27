@@ -55,6 +55,87 @@ describe("teacher decision request body parsing (Teacher may only send {request_
   });
 });
 
+describe("parent cancel RPC row -> HTTP mapping (Phase 6 cancel codes)", () => {
+  test("ok=true (CANCELLED) -> 200 with CANCELLED status", () => {
+    const r = mapRpcDecision(
+      {
+        ok: true,
+        code: "OK",
+        request_id: "req-c1",
+        student_id: "stu-c1",
+        status: "CANCELLED"
+      },
+      "CANCELLED"
+    );
+    assert.equal(r.ok, true);
+    if (r.ok) {
+      assert.equal(r.status, 200);
+      assert.equal(r.body.status, "CANCELLED");
+    }
+  });
+  test("PARENT_REQUIRED -> 403", () => {
+    const r = mapRpcDecision(
+      {
+        ok: false,
+        code: "PARENT_REQUIRED",
+        request_id: null,
+        student_id: null,
+        status: null
+      },
+      "CANCELLED"
+    );
+    assert.equal(r.ok, false);
+    if (!r.ok) {
+      assert.equal(r.status, 403);
+      assert.equal(r.code, "PARENT_REQUIRED");
+    }
+  });
+  test("PARENT_STUDENT_FORBIDDEN -> 403", () => {
+    const r = mapRpcDecision(
+      {
+        ok: false,
+        code: "PARENT_STUDENT_FORBIDDEN",
+        request_id: "req-c3",
+        student_id: "stu-other",
+        status: "REQUESTED"
+      },
+      "CANCELLED"
+    );
+    assert.equal(r.ok, false);
+    if (!r.ok) {
+      assert.equal(r.status, 403);
+      assert.equal(r.code, "PARENT_STUDENT_FORBIDDEN");
+    }
+  });
+  test("REQUEST_NOT_CANCELLABLE -> 409", () => {
+    const r = mapRpcDecision(
+      {
+        ok: false,
+        code: "REQUEST_NOT_CANCELLABLE",
+        request_id: "req-c4",
+        student_id: "stu-c4",
+        status: "AWAITING_TEACHER"
+      },
+      "CANCELLED"
+    );
+    assert.equal(r.ok, false);
+    if (!r.ok) {
+      assert.equal(r.status, 409);
+      assert.equal(r.code, "REQUEST_NOT_CANCELLABLE");
+    }
+  });
+  test("cancel exception mapping: REQUEST_NOT_CANCELLABLE -> 409", () => {
+    const r = mapDecisionError("REQUEST_NOT_CANCELLABLE");
+    assert.equal(r.status, 409);
+    assert.equal(r.code, "REQUEST_NOT_CANCELLABLE");
+  });
+  test("cancel exception mapping: PARENT_STUDENT_FORBIDDEN -> 403", () => {
+    const r = mapDecisionError("PARENT_STUDENT_FORBIDDEN");
+    assert.equal(r.status, 403);
+    assert.equal(r.code, "PARENT_STUDENT_FORBIDDEN");
+  });
+});
+
 describe("teacher decision RPC row -> HTTP mapping (Phase 5 error contract)", () => {
   test("ok=true -> 200 with minimal {request_id, student_id, status}", () => {
     const r = mapRpcDecision(

@@ -52,6 +52,7 @@ const config: Config = {
           "sans-serif"
         ],
         mono: [
+          "var(--font-geist-mono)",
           '"Geist Mono"',
           '"JetBrains Mono"',
           "Consolas",

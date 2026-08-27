@@ -1,12 +1,19 @@
 # DismissFlow EPS — Architecture
 
-> **Document Status: Pre-implementation / Greenfield**
+> **Document Status: Implemented as of 2026-08-27**
 >
-> As of **2026-08-26**, the DismissFlow EPS repository contains **only `Docs/PRD.md`** (the product requirements) and a `.commandcode/` internal tooling directory. There is **no Next.js application, no `supabase/` migrations, no Edge Functions, no UI components, and no committed source code** in the repository yet.
+> The DismissFlow EPS repository is no longer greenfield. The database
+> schema, RLS policies, Edge Functions, and all four portals (parent,
+> gate, teacher, admin) are committed and operational. The Next.js app
+> is wired to the Supabase backend; the QR lifecycle, atomic single-use
+> consume, role-scoped authorization, and immutable audit trail are
+> enforced by the server. This document continues to be the source of
+> truth for *how* the system is built; the live status is reflected in
+> the table at the top of `README.md`.
 >
-> Consequently, **every component described below that is not yet committed is explicitly marked `Planned`** and is derived from the PRD's *Final Technology Decision* (PRD §34). This document does **not** invent implementation; it specifies the architecture the implementation **must** follow. Where the PRD is the source of a requirement, it is cited as `PRD §N`.
->
-> The single source of truth for product scope remains `Docs/PRD.md`. This document describes *how* the product is built, not *what* the product is.
+> Components introduced after the original greenfield blueprint are
+> marked `Implemented` below. Any component still marked `Planned` is
+> either a Phase 7+ item or explicitly out of prototype scope.
 
 ---
 
@@ -14,7 +21,7 @@
 
 | Label | Meaning |
 | ----- | ------- |
-| `Implemented` | Exists in the repository today (currently limited to `Docs/PRD.md`). |
+| `Implemented` | Exists in the repository today. |
 | `Planned` | Required by the PRD but **not yet implemented** in the repository. |
 | `Future` | Post-prototype evolution (PRD §30). Not required for the prototype. |
 | `PRD §N` | Citation to the product requirements document. |
@@ -107,7 +114,9 @@ graph TD
     RT -->|driven by DB changes| PG
 ```
 
-The diagram above is the target architecture (`PRD §9`). **None of the nodes on the left or the Edge Functions on the right exist in the repository yet** — they are `Planned`.
+The diagram above is the implemented architecture (`PRD §9`). The four
+portals on the left and the Edge Functions on the right are all
+`Implemented` in the repository (see `README.md` status table).
 
 ---
 
@@ -154,7 +163,9 @@ graph TD
 
 ## 3. Application Architecture
 
-> **Status:** `Planned`. No Next.js application exists in the repository. The structure below follows the PRD's stack (`PRD §8`, `PRD §34`) and standard Next.js App Router + shadcn/ui conventions.
+> **Status:** `Implemented`. The Next.js App Router application is committed
+> under `app/`. The structure follows the PRD's stack (`PRD §8`, `PRD §34`)
+> and the Revora / Kernel motion design system in `Docs/design/README.md`.
 
 ### 3.1 Framework and Structure
 
@@ -235,7 +246,9 @@ lib/
 
 ## 4. Portal Architecture
 
-All four portals are `Planned` (no code exists). Each is specified below against the PRD.
+All four portals are `Implemented`. Each ships a `layout.tsx` role guard
+and a primary page that consumes the realtime subscription helpers in
+`lib/realtime/subs.ts`. The portals are specified against the PRD below.
 
 ### 4.1 Parent Portal
 
@@ -281,7 +294,10 @@ No other admin capabilities are assumed.
 
 ## 5. Backend Architecture
 
-> **Status:** `Planned`. The entire backend is specified by the PRD's Final Technology Decision (`PRD §34`). No Supabase project files exist in the repository.
+> **Status:** `Implemented`. The entire backend is the Supabase project
+> specified by the PRD's Final Technology Decision (`PRD §34`). The
+> schema is in `supabase/migrations/`, the server logic in
+> `supabase/functions/`, and the RLS policies in `0001_init.sql`.
 
 Supabase provides the complete backend:
 
@@ -324,13 +340,17 @@ No triggers are assumed to exist; the authoritative logic lives in Edge Function
 
 ## 6. Database Architecture
 
-> **Status:** `Planned`. No migrations or schema files exist in the repository. The tables below are derived directly from the PRD's Core Data Model (`PRD §10`) and are specified here as the implementation target. They are **not** yet created.
+> **Status:** `Implemented`. The schema is in `supabase/migrations/0001_init.sql`
+> and subsequent migrations. The tables below are the live implementation,
+> not a target.
 
-### 6.1 Tables (Planned)
+### 6.1 Tables (Implemented)
 
-> Column types are illustrative. `admission_no` **must** be `TEXT` to preserve leading zeroes such as `040` (`PRD §11`).
+> Column types match the live implementation in
+> `supabase/migrations/0001_init.sql`. `admission_no` is `TEXT` so leading
+> zeroes such as `040` are preserved (`PRD §11`).
 
-#### `students`  (`Planned`)
+#### `students`  (`Implemented`)
 | Column | Type | Notes |
 | ------ | ---- | ----- |
 | `student_id` | `uuid` PK | |
@@ -950,7 +970,9 @@ flowchart LR
 
 ### 17.1 Actual Repository (today)
 
-The repository currently contains **only** documentation and internal tooling. No application code exists.
+The repository is a Next.js + Supabase monorepo containing the
+committed schema, Edge Functions, four portals, and the design
+system.
 
 ```
 DismissFlow EPS/
@@ -1068,21 +1090,37 @@ Each directory's responsibility follows the descriptions in §3 and §5.
 
 ### 20.1 Implemented
 - `Docs/PRD.md` — the product requirements and source of truth.
-- `.commandcode/` — internal tooling metadata (not application code).
-
-**No application code, database schema, Edge Functions, or UI components exist in the repository.**
+- `Docs/architecture.md` — this document.
+- `supabase/migrations/0001_init.sql` — full schema with RLS, partial
+  unique index, helper functions.
+- `supabase/migrations/0003_scan_qr.sql`, `0004_rpc_security.sql`,
+  `0005_rpc_fix.sql` — atomic `consume_qr_scan` RPC + service-role lockdown.
+- `supabase/migrations/0006_seed_tulip.sql` — 18-student Tulip roster.
+- `supabase/migrations/0007_teacher_decision.sql` — atomic
+  `teacher_decide_request` RPC.
+- `supabase/migrations/0008_cancel_request.sql` — atomic
+  `parent_cancel_request` RPC.
+- `supabase/functions/create-dismissal-request/`,
+  `scan-qr/`, `approve-dismissal/`, `reject-dismissal/`,
+  `cancel-dismissal/` — all five Edge Functions.
+- `app/parent/`, `app/gate/`, `app/teacher/`, `app/admin/` — the four
+  portals (live status, cancel, history, profile, scanner, queue,
+  detail, overview, roster, logs).
+- `app/login/` — parent + role-aware sign-in pages.
+- `lib/realtime/subs.ts` — Realtime subscription helpers.
+- `lib/qr/scan.ts` — `BarcodeDetector`-based camera scanner.
+- `lib/dismissal/client.ts` — typed wrappers around all Edge Functions.
+- `scripts/provision-demo-identities.mjs` — real-Supabase-Auth demo
+  identity provisioning.
+- Unit tests for the shared scan + decision contracts and the QR
+  crypto module (47 / 47 passing).
 
 ### 20.2 Planned (required by PRD, not yet built)
-- Next.js App Router app with `parent/`, `gate/`, `teacher/`, `admin/` route groups.
-- Tailwind + shadcn/ui design system and shared components.
-- Supabase project: Auth accounts (seeded teacher/gate/admin; demo parent credential).
-- PostgreSQL schema: the eight tables in §6 with RLS policies.
-- Edge Functions: `createDismissalRequest`, `scanQr`, `approveDismissal`, `rejectDismissal`, `cancelDismissal`.
-- QR lifecycle: server-generated token, hashed storage, expiry, atomic single-use.
-- Realtime subscriptions for teacher queue and parent status.
-- Audit table `dismissal_events` (immutable).
-- 18-student Nursery/Tulip seed roster with string admission numbers.
-- Vercel + Supabase deployment with env-var management.
+- Manual verification path for the teacher when identity is confirmed
+  without a prior scan event (`PRD §17`, §4.3 `MANUAL VERIFICATION`).
+- Camera fallback for unsupported browsers — the gate portal currently
+  surfaces a manual-entry field; a richer fallback UI is a follow-up.
+- Vercel + Supabase production deployment with env-var management.
 
 ### 20.3 Future (post-prototype; `PRD §30`)
 - Secure parent authentication (passwords/OTP/passkeys/IdP).

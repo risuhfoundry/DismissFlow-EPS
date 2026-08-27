@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Barlow_Condensed, Geist_Mono } from "next/font/google";
+import { Inter, Barlow_Condensed } from "next/font/google";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { SmoothScroll } from "@/components/effects/SmoothScroll";
 import { CursorGlow } from "@/components/effects/CursorGlow";
@@ -17,11 +18,7 @@ const display = Barlow_Condensed({
   display: "swap"
 });
 
-const mono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-  display: "swap"
-});
+const mono = GeistMono;
 
 export const metadata: Metadata = {
   title: "DismissFlow",

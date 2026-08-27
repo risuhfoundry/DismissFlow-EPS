@@ -107,6 +107,29 @@ npm run dev
 
 The parent portal renders without env vars. To wire it to a real Supabase project, copy `.env.example` to `.env.local` and fill in `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 
+### Demo identity provisioning
+
+The database schema and Edge Functions are complete, but there are no Auth users
+or `public.users` profiles yet. Run the provisioning script once to create the
+demo identities (real Supabase Auth accounts, no hardcoded credentials):
+
+```bash
+SUPABASE_URL=https://<project>.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=<server-only-secret> \
+NEXT_PUBLIC_DEMO_EMAIL_DOMAIN=demo.dismissflow \
+DEMO_TEACHER_PASSWORD=... DEMO_GATE_PASSWORD=... DEMO_ADMIN_PASSWORD=... \
+npm run provision
+```
+
+- **Parents** are created from the live `students` table (one parent per student,
+  linked to that student). No student data is hardcoded.
+- **Teacher** is assigned to the Tulip class (`classes.teacher_id` is set).
+- **Gate** and **Admin** accounts are created with `role = gate` / `role = admin`.
+- If `DEMO_*_PASSWORD` is omitted, a random password is generated and printed.
+
+Parent login uses the PRD §12 demo shortcut: the **admission number is both the
+identifier and the password** (the Auth email is `<admission>@<demo-domain>`).
+
 ---
 
 ## Dismissal state machine (simplified for the prototype)

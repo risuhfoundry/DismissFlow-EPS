@@ -51,7 +51,7 @@ export function parseDecisionBody(input: unknown): { request_id: string } | null
 // -----------------------------------------------------------------------------
 // Response contracts. `ok` narrows the union for the caller.
 // -----------------------------------------------------------------------------
-export type Decision = "DISMISSED" | "REJECTED";
+export type Decision = "DISMISSED" | "REJECTED" | "CANCELLED";
 
 export interface DecisionSuccess {
   ok: true;
@@ -82,7 +82,7 @@ export interface DecisionRpcRow {
   status: string | null;
 }
 
-// Map the RPC's returned row to an HTTP outcome (Phase 5 error contract):
+// Map the RPC's returned row to an HTTP outcome (Phase 5 + Phase 6 contract):
 //   200 success + minimal {request_id, student_id}
 //   | 400 INVALID_DECISION
 //   | 403 TEACHER_REQUIRED
@@ -90,6 +90,12 @@ export interface DecisionRpcRow {
 //   | 404 REQUEST_NOT_FOUND
 //   | 409 REQUEST_NOT_AWAITING_TEACHER
 //   | 500 otherwise.
+//
+// Phase 6 extends the same mapping to the parent cancel flow. The cancel RPC
+// uses {PARENT_REQUIRED, PARENT_STUDENT_FORBIDDEN, REQUEST_NOT_CANCELLABLE} as
+// the failure codes; the decision parameter is then "CANCELLED" rather than
+// "DISMISSED" / "REJECTED". We detect the cancel codes from the row and map
+// them to the right HTTP status.
 export function mapRpcDecision(
   row: DecisionRpcRow,
   decision: Decision
@@ -142,6 +148,27 @@ export function mapRpcDecision(
         code: "REQUEST_NOT_AWAITING_TEACHER",
         message: "This request is not awaiting a teacher decision."
       };
+    case "PARENT_REQUIRED":
+      return {
+        ok: false,
+        status: 403,
+        code: "PARENT_REQUIRED",
+        message: "Parent role required."
+      };
+    case "PARENT_STUDENT_FORBIDDEN":
+      return {
+        ok: false,
+        status: 403,
+        code: "PARENT_STUDENT_FORBIDDEN",
+        message: "You are not authorized for this student."
+      };
+    case "REQUEST_NOT_CANCELLABLE":
+      return {
+        ok: false,
+        status: 409,
+        code: "REQUEST_NOT_CANCELLABLE",
+        message: "This request can no longer be cancelled."
+      };
     default:
       return {
         ok: false,
@@ -164,6 +191,12 @@ export function mapDecisionError(message: string): DecisionFailure {
       return { ok: false, status: 404, code: "REQUEST_NOT_FOUND", message: "Request not found." };
     case "REQUEST_NOT_AWAITING_TEACHER":
       return { ok: false, status: 409, code: "REQUEST_NOT_AWAITING_TEACHER", message: "This request is not awaiting a teacher decision." };
+    case "PARENT_REQUIRED":
+      return { ok: false, status: 403, code: "PARENT_REQUIRED", message: "Parent role required." };
+    case "PARENT_STUDENT_FORBIDDEN":
+      return { ok: false, status: 403, code: "PARENT_STUDENT_FORBIDDEN", message: "You are not authorized for this student." };
+    case "REQUEST_NOT_CANCELLABLE":
+      return { ok: false, status: 409, code: "REQUEST_NOT_CANCELLABLE", message: "This request can no longer be cancelled." };
     default:
       return { ok: false, status: 500, code: "INTERNAL_ERROR", message: "Decision failed." };
   }

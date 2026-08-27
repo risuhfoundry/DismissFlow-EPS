@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Icon } from "@/components/ui/Icon";
@@ -8,11 +8,14 @@ import { MonoLabel } from "@/components/ui/MonoLabel";
 import { Panel } from "@/components/ui/Panel";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { StatusIndicator } from "@/components/ui/StatusIndicator";
 import { TopNav } from "@/components/ui/TopNav";
 import type { DismissalStatus } from "@/lib/dismissal/state";
 import { getSessionUser } from "@/lib/auth/session";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { DismissalQr } from "@/lib/qr/generate";
+import { useRealtimeStatus, useTableChanges } from "@/lib/realtime/subs";
+import { cancelDismissal, createDismissalRequest } from "@/lib/dismissal/client";
 
 const NAV_LINKS = [
   { label: "Dashboard", href: "/parent" },
@@ -25,6 +28,13 @@ type StudentView = {
   admissionNo: string;
   className: string;
   section: string;
+};
+
+type RequestRow = {
+  request_id: string;
+  status: DismissalStatus;
+  expires_at: string | null;
+  student_id: string;
 };
 
 function useCountdown(expiresAt: Date | null) {
@@ -92,7 +102,9 @@ function StudentCard({
   student,
   status,
   onRequest,
+  onCancel,
   requesting,
+  cancelling,
   error,
   countdown,
   qrToken
@@ -100,7 +112,9 @@ function StudentCard({
   student: StudentView | null;
   status: DismissalStatus;
   onRequest: () => void;
+  onCancel: () => void;
   requesting: boolean;
+  cancelling: boolean;
   error: string | null;
   countdown: string;
   qrToken: string | null;
@@ -144,7 +158,13 @@ function StudentCard({
 
           <div className="flex flex-col items-stretch gap-3 min-w-[260px]">
             {showQr ? (
-              <QrReveal status={status} countdown={countdown} qrToken={qrToken} />
+              <QrReveal
+                status={status}
+                countdown={countdown}
+                qrToken={qrToken}
+                cancelling={cancelling}
+                onCancel={onCancel}
+              />
             ) : (
               <>
                 <PrimaryButton
@@ -194,11 +214,15 @@ function Spec({ label, value }: { label: string; value: string }) {
 function QrReveal({
   status,
   countdown,
-  qrToken
+  qrToken,
+  cancelling,
+  onCancel
 }: {
   status: DismissalStatus;
   countdown: string;
   qrToken: string | null;
+  cancelling: boolean;
+  onCancel: () => void;
 }) {
   return (
     <motion.div
@@ -254,6 +278,26 @@ function QrReveal({
         <span className="text-muted">EXPIRES IN</span>
         <span className="text-bone tabular-nums">{countdown}</span>
       </div>
+
+      {status === "REQUESTED" && (
+        <button
+          onClick={onCancel}
+          disabled={cancelling}
+          className="h-10 px-4 inline-flex items-center justify-center gap-2 hairline text-muted hover:text-danger hover:border-danger font-mono uppercase tracking-widest text-mono-xs transition-colors disabled:opacity-50"
+        >
+          {cancelling ? (
+            <>
+              <Icon name="timer" className="h-3.5 w-3.5" strokeWidth={2} />
+              Cancelling…
+            </>
+          ) : (
+            <>
+              <Icon name="x" className="h-3.5 w-3.5" strokeWidth={2} />
+              Cancel Request
+            </>
+          )}
+        </button>
+      )}
     </motion.div>
   );
 }
@@ -262,7 +306,7 @@ function InfoGrid() {
   const items = [
     { icon: "car" as const, label: "Pickup Method", value: "Parent Pickup" },
     { icon: "user" as const, label: "Authorized", value: "Linked Guardian" },
-    { icon: "history" as const, label: "Today", value: "02 dismissals" },
+    { icon: "history" as const, label: "Today", value: "— dismissals" },
     { icon: "settings" as const, label: "Class", value: "Tulip" }
   ];
 
@@ -317,25 +361,57 @@ function Footer() {
 }
 
 export default function ParentDashboardPage() {
+  const supabase = getSupabaseBrowserClient();
   const [parentName, setParentName] = useState("Parent");
   const [student, setStudent] = useState<StudentView | null>(null);
-  const [status, setStatus] = useState<DismissalStatus>("IDLE");
-  const [expiresAt, setExpiresAt] = useState<Date | null>(null);
+  const [activeRequest, setActiveRequest] = useState<RequestRow | null>(null);
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [requesting, setRequesting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authNote, setAuthNote] = useState<string | null>(null);
 
+  const expiresAt = useMemo(
+    () => (activeRequest?.expires_at ? new Date(activeRequest.expires_at) : null),
+    [activeRequest]
+  );
   const countdown = useCountdown(expiresAt);
+  const status: DismissalStatus = activeRequest?.status ?? "IDLE";
+
+  const status$ = useRealtimeStatus(supabase, "dismissal_requests");
+
+  // Live updates: when any dismissal_request row for this parent changes,
+  // reflect it. The query is RLS-scoped, so we only ever receive rows for the
+  // linked student.
+  const handleChange = useCallback((row: RequestRow) => {
+    setActiveRequest((current) => {
+      // Ignore rows that don't match our current active request — RLS already
+      // limits the stream to the linked student, but a different student_id
+      // would mean a stale subscription.
+      if (current && row.student_id !== current.student_id) return current;
+      if (
+        row.status === "REQUESTED" ||
+        row.status === "AWAITING_TEACHER"
+      ) {
+        return row;
+      }
+      // Final state reached — drop the QR (the plaintext was server-issued
+      // once and is no longer meaningful), and the StatusPill will flip.
+      if (current && row.request_id === current.request_id) {
+        setQrToken(null);
+      }
+      return row;
+    });
+  }, []);
+
+  useTableChanges<RequestRow>(supabase, "dismissal_requests", "*", handleChange);
 
   // Load the real authenticated parent, their linked student, and any active
-  // request. Authorization/identity are resolved server-side; this only reads
-  // what RLS already permits for the signed-in user.
+  // request on mount.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const supabase = getSupabaseBrowserClient();
         const {
           data: { user }
         } = await supabase.auth.getUser();
@@ -385,17 +461,14 @@ export default function ParentDashboardPage() {
           });
         }
 
-        // A previously created request (if any) — token is server-only and was
-        // returned only at creation time, so we surface status but not a QR.
         const { data: active } = await supabase
           .from("dismissal_requests")
-          .select("request_id, status, expires_at")
+          .select("request_id, status, expires_at, student_id")
           .eq("student_id", linkedStudentId)
           .in("status", ["REQUESTED", "AWAITING_TEACHER"])
           .maybeSingle();
         if (active && !cancelled) {
-          setStatus(active.status as DismissalStatus);
-          if (active.expires_at) setExpiresAt(new Date(active.expires_at));
+          setActiveRequest(active as RequestRow);
         }
       } catch {
         if (!cancelled) {
@@ -408,49 +481,52 @@ export default function ParentDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [supabase]);
 
   async function handleRequest() {
     if (requesting) return;
     setRequesting(true);
     setError(null);
     try {
-      const supabase = getSupabaseBrowserClient();
-      // The function derives the student/role server-side; the client sends no
-      // student_id, parent_id, or status (Docs/architecture.md §11.1).
-      const { data, error: fnError } = await supabase.functions.invoke(
-        "create-dismissal-request",
-        { method: "POST", body: {} }
-      );
-      if (fnError) throw fnError;
-      if (!data || typeof data.token !== "string") {
-        throw new Error("Malformed response");
-      }
-      setStatus("REQUESTED");
-      setExpiresAt(new Date(data.expires_at));
+      const data = await createDismissalRequest();
+      setActiveRequest({
+        request_id: data.request_id,
+        status: "REQUESTED",
+        expires_at: data.expires_at,
+        student_id: student?.admissionNo ? "" : ""
+      });
       setQrToken(data.token); // returned exactly once to this parent
-    } catch (e: unknown) {
-      const err = e as {
-        code?: string | number;
-        status?: number;
-        context?: { status?: number };
-        message?: string;
-      };
-      let code = "";
-      try {
-        const parsed = JSON.parse(err?.message ?? "{}");
-        code = parsed?.code;
-      } catch {
-        /* ignore */
-      }
-      const status = err?.context?.status ?? err?.status;
-      if (code === "CONFLICT" || status === 409) {
+    } catch (e) {
+      const err = e as { code?: string; status?: number };
+      if (err?.code === "CONFLICT" || err?.status === 409) {
         setError("An active dismissal request already exists for this student.");
       } else {
         setError("Could not create the dismissal request. Please try again.");
       }
     } finally {
       setRequesting(false);
+    }
+  }
+
+  async function handleCancel() {
+    if (!activeRequest || cancelling) return;
+    setCancelling(true);
+    setError(null);
+    try {
+      await cancelDismissal(activeRequest.request_id);
+      // Realtime will also deliver the UPDATE; we set it optimistically so the
+      // UI flips immediately.
+      setActiveRequest({ ...activeRequest, status: "CANCELLED" });
+      setQrToken(null);
+    } catch (e) {
+      const err = e as { code?: string; status?: number };
+      if (err?.code === "REQUEST_NOT_CANCELLABLE" || err?.status === 409) {
+        setError("This request can no longer be cancelled.");
+      } else {
+        setError("Could not cancel the request. Please try again.");
+      }
+    } finally {
+      setCancelling(false);
     }
   }
 
@@ -461,11 +537,8 @@ export default function ParentDashboardPage() {
       <TopNav
         links={NAV_LINKS}
         trailing={
-          <div className="hidden md:flex items-center gap-2 hairline bg-panel px-3 py-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_8px_#B7EF42] animate-pulse-dot" />
-            <MonoLabel size="xs" tone="bone">
-              REALTIME · SUBSCRIBED
-            </MonoLabel>
+          <div className="hidden md:flex items-center gap-2">
+            <StatusIndicator status={status$} />
           </div>
         }
       />
@@ -496,7 +569,9 @@ export default function ParentDashboardPage() {
               student={student}
               status={status}
               onRequest={handleRequest}
+              onCancel={handleCancel}
               requesting={requesting}
+              cancelling={cancelling}
               error={error}
               countdown={countdown}
               qrToken={isActive ? qrToken : null}

@@ -7,17 +7,22 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types lib/qr/__tests__/crypto.test.ts && node --experimental-strip-types lib/qr/__tests__/scan.test.ts && node --experimental-strip-types lib/teacher/__tests__/decision.test.ts",
+    "provision": "node scripts/provision-demo-identities.mjs"
   },
   "dependencies": {
+    "@fontsource/geist-mono": "^5.3.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.4",
     "clsx": "^2.1.1",
     "framer-motion": "^12.0.0",
+    "geist": "^1.7.2",
     "lenis": "^1.3.4",
-    "next": "14.2.13",
+    "next": "14.2.35",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "react-qr-code": "^2.2.0"
   },
   "devDependencies": {
     "@types/node": "20.16.10",

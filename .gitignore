@@ -6,3 +6,11 @@ out/
 .env.*.local
 .DS_Store
 *.tsbuildinfo
+
+# Local AI/dev files
+.commandcode/
+.mcp.json
+_dev.log
+_p5_auth.mjs
+_root.html
+opencode.json

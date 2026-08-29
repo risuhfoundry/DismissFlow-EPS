@@ -8,13 +8,15 @@ import { MonoLabel } from "@/components/ui/MonoLabel";
 import { Panel } from "@/components/ui/Panel";
 import { StatusIndicator } from "@/components/ui/StatusIndicator";
 import { TopNav } from "@/components/ui/TopNav";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { AccessNote } from "@/components/ui/AccessNote";
+import { LoadingState, EmptyState } from "@/components/ui/StateBlock";
+import { GhostButton } from "@/components/ui/Button";
 import { getSessionUser } from "@/lib/auth/session";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRealtimeStatus, useTableChanges } from "@/lib/realtime/subs";
 
-const NAV_LINKS = [
-  { label: "Queue", href: "/teacher" }
-];
+const NAV_LINKS = [{ label: "Queue", href: "/teacher" }];
 
 type QueueRow = {
   request_id: string;
@@ -25,11 +27,19 @@ type QueueRow = {
 
 type StudentLite = { name: string; admission_no: string };
 
-function formatTime(iso: string): string {
+function clockTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit"
   });
+}
+
+// How long the request has been waiting on the teacher (request age).
+function ageLabel(iso: string): string {
+  const mins = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 1) return "JUST NOW";
+  if (mins < 60) return mins + "M AGO";
+  return Math.floor(mins / 60) + "H " + (mins % 60) + "M AGO";
 }
 
 export default function TeacherQueuePage() {
@@ -42,12 +52,6 @@ export default function TeacherQueuePage() {
   const [refreshing, setRefreshing] = useState(false);
   const status$ = useRealtimeStatus(supabase, "dismissal_requests");
 
-  // Load teacher context + the AWAITING_TEACHER queue for the assigned class.
-  // RLS scopes the query to the teacher's class (dr_teacher_class); the browser
-  // never filters by class. Realtime pushes new scans live, and this SAME loader
-  // backs the manual Refresh control — safe, user-initiated fetching with no
-  // polling timer (Docs/architecture.md §9). Re-used so a manual refresh and a
-  // Realtime-driven update never fight over local state.
   const loadQueue = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -76,7 +80,6 @@ export default function TeacherQueuePage() {
         .limit(50);
       if (qErr) throw qErr;
       setRows((queue ?? []) as QueueRow[]);
-      // Hydrate the students we know about.
       const studentIds = Array.from(new Set((queue ?? []).map((r) => r.student_id)));
       if (studentIds.length > 0) {
         const { data: stus } = await supabase
@@ -102,31 +105,32 @@ export default function TeacherQueuePage() {
     loadQueue();
   }, [loadQueue]);
 
-  // Live updates: re-fetch the relevant student row when a new request comes
-  // in for the assigned class. RLS already limits the stream to the class.
-  const handleChange = useCallback(async (row: QueueRow) => {
-    setRows((current) => {
-      const next = current.filter((r) => r.request_id !== row.request_id);
-      if (row.status === "AWAITING_TEACHER") {
-        next.push(row);
-        next.sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const handleChange = useCallback(
+    async (row: QueueRow) => {
+      setRows((current) => {
+        const next = current.filter((r) => r.request_id !== row.request_id);
+        if (row.status === "AWAITING_TEACHER") {
+          next.push(row);
+          next.sort((a, b) => a.created_at.localeCompare(b.created_at));
+        }
+        return next;
+      });
+      if (row.student_id && !students[row.student_id]) {
+        const { data: stu } = await supabase
+          .from("students")
+          .select("student_id, name, admission_no")
+          .eq("student_id", row.student_id)
+          .maybeSingle();
+        if (stu) {
+          setStudents((m) => ({
+            ...m,
+            [stu.student_id]: { name: stu.name, admission_no: stu.admission_no }
+          }));
+        }
       }
-      return next;
-    });
-    if (row.student_id && !students[row.student_id]) {
-      const { data: stu } = await supabase
-        .from("students")
-        .select("student_id, name, admission_no")
-        .eq("student_id", row.student_id)
-        .maybeSingle();
-      if (stu) {
-        setStudents((m) => ({
-          ...m,
-          [stu.student_id]: { name: stu.name, admission_no: stu.admission_no }
-        }));
-      }
-    }
-  }, [supabase, students]);
+    },
+    [supabase, students]
+  );
 
   useTableChanges<QueueRow>(supabase, "dismissal_requests", "*", handleChange);
 
@@ -142,74 +146,46 @@ export default function TeacherQueuePage() {
       />
 
       <main className="pt-24 pb-16 section-shell">
-        <span className="eyebrow">
-          <i />
-          03 / TEACHER QUEUE
-        </span>
-        <h2 className="font-display text-display-md uppercase text-bone mt-4">
-          {classMeta.name || "Your Class"}
-        </h2>
-        <p className="text-muted mt-3 max-w-2xl">
-          Live pickup requests for your assigned class. The list updates in
-          real time when a gate scan arrives — no refresh required.
-        </p>
+        <PageHeader
+          eyebrow="03 / TEACHER QUEUE"
+          title={classMeta.name || "Your Class"}
+          description="Live pickup requests for your assigned class. The list updates in real time when a gate scan arrives — no refresh required."
+        />
 
         {authNote && (
           <div className="mt-8">
-            <Panel withTopBar topBar={<span>00 / ACCESS</span>}>
-              <div className="p-7 flex flex-col gap-5">
-                <p className="font-mono text-mono-sm uppercase tracking-widest text-muted">
-                  {authNote}
-                </p>
-                <Link
-                  href="/login/teacher"
-                  className="h-12 px-5 inline-flex items-center gap-3 bg-accent text-white font-mono uppercase tracking-widest text-mono-sm font-semibold shadow-accent-glow w-fit"
-                >
-                  <Icon name="arrow.right" className="h-4 w-4" strokeWidth={2} />
-                  Sign In
-                </Link>
-              </div>
-            </Panel>
+            <AccessNote message={authNote} signInHref="/login/teacher" signInLabel="Sign In" />
           </div>
         )}
 
         {!authNote && (
-          <div className="mt-10">
+          <div className="mt-8">
             <Panel
               withTopBar
               topBar={
                 <>
                   <span>01 / PENDING PICKUPS</span>
                   <span className="flex items-center gap-3">
-                    <span className="text-success">● LIVE</span>
-                    <button
-                      type="button"
+                    <span className="text-success flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_8px_#B7EF42] animate-pulse-dot" />
+                      LIVE
+                    </span>
+                    <GhostButton
                       onClick={() => loadQueue()}
                       disabled={refreshing}
-                      className="h-7 px-3 inline-flex items-center gap-2 hairline text-muted hover:text-bone font-mono uppercase tracking-widest text-mono-xs transition-colors disabled:opacity-50"
                       aria-label="Refresh pickup queue"
                     >
-                      <Icon
-                        name={refreshing ? "timer" : "arrow.right"}
-                        className="h-3.5 w-3.5 -rotate-180"
-                        strokeWidth={2}
-                      />
+                      <Icon name={refreshing ? "timer" : "arrow.right"} className="h-3.5 w-3.5" strokeWidth={2} />
                       {refreshing ? "Refreshing" : "Refresh"}
-                    </button>
+                    </GhostButton>
                   </span>
                 </>
               }
             >
               {loading ? (
-                <div className="p-10 flex items-center justify-center">
-                  <Icon name="timer" className="h-5 w-5 text-muted" />
-                </div>
+                <LoadingState message="Loading queue…" />
               ) : rows.length === 0 ? (
-                <div className="p-10 text-muted text-center">
-                  <MonoLabel size="sm" tone="muted">
-                    NO PENDING PICKUPS
-                  </MonoLabel>
-                </div>
+                <EmptyState message="No pending pickups." icon="scan" />
               ) : (
                 <ul className="divide-y divide-line">
                   {rows.map((r, idx) => {
@@ -231,7 +207,7 @@ export default function TeacherQueuePage() {
                         >
                           <div className="flex flex-col gap-1">
                             <MonoLabel size="xs" tone="muted">
-                              SCANNED {formatTime(r.created_at)}
+                              SCANNED {clockTime(r.created_at)} · WAITED {ageLabel(r.created_at)}
                             </MonoLabel>
                             <p className="font-display text-2xl uppercase text-bone leading-none">
                               {s?.name ?? "Loading…"}
@@ -244,11 +220,7 @@ export default function TeacherQueuePage() {
                             <MonoLabel size="xs" tone="accent">
                               AWAITING DECISION
                             </MonoLabel>
-                            <Icon
-                              name="arrow.right"
-                              className="h-4 w-4 text-muted"
-                              strokeWidth={2}
-                            />
+                            <Icon name="arrow.right" className="h-4 w-4 text-muted" strokeWidth={2} />
                           </div>
                         </Link>
                       </motion.li>

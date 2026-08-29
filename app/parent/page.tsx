@@ -6,10 +6,12 @@ import { motion } from "framer-motion";
 import { Icon } from "@/components/ui/Icon";
 import { MonoLabel } from "@/components/ui/MonoLabel";
 import { Panel } from "@/components/ui/Panel";
-import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import { PrimaryButton, SecondaryButton } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { StatusIndicator } from "@/components/ui/StatusIndicator";
 import { TopNav } from "@/components/ui/TopNav";
+import { Alert } from "@/components/ui/Alert";
+import { AccessNote } from "@/components/ui/AccessNote";
 import type { DismissalStatus } from "@/lib/dismissal/state";
 import { getSessionUser } from "@/lib/auth/session";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -66,138 +68,6 @@ function Eyebrow() {
   );
 }
 
-function WelcomeRow({ parentName }: { parentName: string }) {
-  const now = new Date();
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      className="flex items-end justify-between border-b border-line pb-6"
-    >
-      <div>
-        <Eyebrow />
-        <h2 className="font-display text-display-md uppercase text-bone mt-4">
-          {parentName}
-        </h2>
-      </div>
-      <div className="text-right">
-        <MonoLabel size="sm" tone="muted">
-          {now.toLocaleDateString("en-US", { weekday: "long" })}
-        </MonoLabel>
-        <p className="font-mono text-mono-md text-bone mt-1 tabular-nums">
-          {now.toLocaleString("en-US", {
-            month: "short",
-            day: "numeric",
-            hour: "numeric",
-            minute: "2-digit"
-          })}
-        </p>
-      </div>
-    </motion.div>
-  );
-}
-
-function StudentCard({
-  student,
-  status,
-  onRequest,
-  onCancel,
-  requesting,
-  cancelling,
-  error,
-  countdown,
-  qrToken
-}: {
-  student: StudentView | null;
-  status: DismissalStatus;
-  onRequest: () => void;
-  onCancel: () => void;
-  requesting: boolean;
-  cancelling: boolean;
-  error: string | null;
-  countdown: string;
-  qrToken: string | null;
-}) {
-  const showQr = status === "REQUESTED" || status === "AWAITING_TEACHER";
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
-    >
-      <Panel
-        withTopBar
-        topBar={
-          <>
-            <span>02 / STUDENT · ACTIVE</span>
-            <span className="text-success">● LIVE</span>
-          </>
-        }
-      >
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-8 p-7">
-          <div className="flex items-start gap-5">
-            <div className="h-16 w-16 hairline flex items-center justify-center text-accent">
-              <Icon name="user" className="h-7 w-7" strokeWidth={1.4} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <MonoLabel size="sm" tone="muted">
-                Student
-              </MonoLabel>
-              <h3 className="font-display text-3xl uppercase text-bone mt-1 leading-none">
-                {student?.name ?? "—"}
-              </h3>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Spec label="GRADE" value={student?.section ?? "—"} />
-                <Spec label="CLASS" value={student?.className ?? "—"} />
-                <Spec label="ADM" value={student?.admissionNo ?? "—"} />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col items-stretch gap-3 min-w-[260px]">
-            {showQr ? (
-              <QrReveal
-                status={status}
-                countdown={countdown}
-                qrToken={qrToken}
-                cancelling={cancelling}
-                onCancel={onCancel}
-              />
-            ) : (
-              <>
-                <PrimaryButton
-                  onClick={onRequest}
-                  disabled={requesting}
-                  aria-label="Request dismissal"
-                >
-                  {requesting ? (
-                    <>
-                      <Icon name="timer" className="h-4 w-4" strokeWidth={2} />
-                      Requesting…
-                    </>
-                  ) : (
-                    <>
-                      <Icon name="walk" className="h-4 w-4" strokeWidth={2} />
-                      Request Dismissal
-                    </>
-                  )}
-                </PrimaryButton>
-                {error && (
-                  <p className="text-mono-sm font-mono uppercase tracking-widest text-danger">
-                    {error}
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      </Panel>
-    </motion.div>
-  );
-}
-
 function Spec({ label, value }: { label: string; value: string }) {
   return (
     <div className="hairline bg-ink px-2.5 py-1 flex items-center gap-2">
@@ -208,6 +78,84 @@ function Spec({ label, value }: { label: string; value: string }) {
         {value}
       </span>
     </div>
+  );
+}
+
+// Final outcome (DISMISSED / REJECTED / CANCELLED / EXPIRED). Gives the parent
+// clear closure instead of silently returning to the "Request Dismissal" button.
+function OutcomeCard({
+  status,
+  onRequest,
+  requesting
+}: {
+  status: DismissalStatus;
+  onRequest: () => void;
+  requesting: boolean;
+}) {
+  const copy: Record<
+    string,
+    { icon: "check" | "x" | "timer"; tone: "success" | "danger" | "warn" | "muted"; title: string; detail: string }
+  > = {
+    DISMISSED: {
+      icon: "check",
+      tone: "success",
+      title: "Student Dismissed",
+      detail: "Your child has been released. The teacher confirmed the pickup."
+    },
+    REJECTED: {
+      icon: "x",
+      tone: "danger",
+      title: "Request Rejected",
+      detail: "The teacher could not approve this pickup. Contact the school if you believe this was in error."
+    },
+    CANCELLED: {
+      icon: "x",
+      tone: "muted",
+      title: "Request Cancelled",
+      detail: "You cancelled this request. You can start a new one at any time."
+    },
+    EXPIRED: {
+      icon: "timer",
+      tone: "warn",
+      title: "Request Expired",
+      detail: "The QR code timed out before it was used. Generate a new request to try again."
+    }
+  };
+  const c = copy[status];
+  if (!c) return null;
+  const ring =
+    c.tone === "success"
+      ? "text-success"
+      : c.tone === "danger"
+      ? "text-danger"
+      : c.tone === "warn"
+      ? "text-warn"
+      : "text-muted";
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      className="flex flex-col items-center text-center gap-4 py-4"
+    >
+      <span
+        className={`h-14 w-14 rounded-full hairline flex items-center justify-center ${ring}`}
+      >
+        <Icon name={c.icon} className="h-7 w-7" strokeWidth={2} />
+      </span>
+      <div>
+        <h3 className={`font-display text-3xl uppercase leading-none ${ring}`}>
+          {c.title}
+        </h3>
+        <p className="mt-3 max-w-sm text-muted leading-relaxed mx-auto">
+          {c.detail}
+        </p>
+      </div>
+      <PrimaryButton onClick={onRequest} disabled={requesting} loading={requesting}>
+        <Icon name="walk" className="h-4 w-4" strokeWidth={2} />
+        Request Dismissal
+      </PrimaryButton>
+    </motion.div>
   );
 }
 
@@ -224,6 +172,7 @@ function QrReveal({
   cancelling: boolean;
   onCancel: () => void;
 }) {
+  const expiresSoon = countdown !== "—" && countdown.startsWith("00:") && !countdown.startsWith("00:0");
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -233,13 +182,12 @@ function QrReveal({
     >
       <div className="flex items-center justify-between">
         <StatusPill status={status} pulse />
-        <MonoLabel size="sm" tone="muted">
-          TTL {countdown}
+        <MonoLabel size="sm" tone={expiresSoon ? "danger" : "muted"}>
+          EXPIRES {countdown}
         </MonoLabel>
       </div>
 
       <div className="relative bg-bone p-3">
-        {/* Mono hairline corner brackets — matches the portal system. */}
         {[
           "top-0 left-0 border-t border-l",
           "top-0 right-0 border-t border-r",
@@ -270,93 +218,44 @@ function QrReveal({
           />
         )}
 
-        {/* Scan line — blue, sweeps top to bottom. */}
         <div className="pointer-events-none absolute left-3 right-3 top-3 h-[2px] bg-accent shadow-accent-glow animate-scan" />
       </div>
 
-      <div className="flex items-center justify-between text-mono-sm font-mono uppercase tracking-widest">
-        <span className="text-muted">EXPIRES IN</span>
-        <span className="text-bone tabular-nums">{countdown}</span>
-      </div>
+      <p className="font-mono text-mono-xs uppercase tracking-widest text-muted text-center">
+        Present this code to gate staff. It is single-use and expires automatically.
+      </p>
 
       {status === "REQUESTED" && (
-        <button
-          onClick={onCancel}
-          disabled={cancelling}
-          className="h-10 px-4 inline-flex items-center justify-center gap-2 hairline text-muted hover:text-danger hover:border-danger font-mono uppercase tracking-widest text-mono-xs transition-colors disabled:opacity-50"
-        >
-          {cancelling ? (
-            <>
-              <Icon name="timer" className="h-3.5 w-3.5" strokeWidth={2} />
-              Cancelling…
-            </>
-          ) : (
-            <>
-              <Icon name="x" className="h-3.5 w-3.5" strokeWidth={2} />
-              Cancel Request
-            </>
-          )}
-        </button>
+        <SecondaryButton onClick={onCancel} disabled={cancelling} loading={cancelling}>
+          <Icon name="x" className="h-4 w-4" strokeWidth={2} />
+          Cancel Request
+        </SecondaryButton>
       )}
     </motion.div>
   );
 }
 
-function InfoGrid() {
-  const items = [
-    { icon: "car" as const, label: "Pickup Method", value: "Parent Pickup" },
-    { icon: "user" as const, label: "Authorized", value: "Linked Guardian" },
-    { icon: "history" as const, label: "Today", value: "— dismissals" },
-    { icon: "settings" as const, label: "Class", value: "Tulip" }
-  ];
-
+function InfoCard({
+  icon,
+  label,
+  value
+}: {
+  icon: "car" | "user" | "history" | "settings";
+  label: string;
+  value: string;
+}) {
   return (
-    <motion.div
-      initial="hidden"
-      animate="show"
-      variants={{
-        hidden: {},
-        show: { transition: { staggerChildren: 0.06, delayChildren: 0.2 } }
-      }}
-      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-line"
-    >
-      {items.map((item) => (
-        <motion.div
-          key={item.label}
-          variants={{
-            hidden: { opacity: 0, y: 16 },
-            show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } }
-          }}
-          className="bg-panel p-6 group hover:bg-panel-alt transition-colors"
-        >
-          <div className="h-10 w-10 hairline flex items-center justify-center text-accent">
-            <Icon name={item.icon} className="h-5 w-5" strokeWidth={1.4} />
-          </div>
-          <MonoLabel size="sm" tone="muted" className="mt-5 block">
-            {item.label}
-          </MonoLabel>
-          <p className="font-display text-2xl uppercase text-bone mt-2 leading-none">
-            {item.value}
-          </p>
-        </motion.div>
-      ))}
-    </motion.div>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="mt-16 border-t border-line pt-8 flex flex-wrap items-center justify-between gap-4">
-      <MonoLabel size="xs" tone="muted">
-        DISMISS / V0.1 / MIT — DISMISSFLOW EPS
-      </MonoLabel>
-      <div className="flex items-center gap-4">
-        <MonoLabel size="xs" tone="muted">
-          PUSH · REALTIME
-        </MonoLabel>
-        <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_10px_#B7EF42] animate-pulse-dot" />
+    <div className="bg-panel p-6 group hover:bg-panel-alt transition-colors">
+      <div className="h-10 w-10 hairline flex items-center justify-center text-accent">
+        <Icon name={icon} className="h-5 w-5" strokeWidth={1.4} />
       </div>
-    </footer>
+      <MonoLabel size="sm" tone="muted" className="mt-5 block">
+        {label}
+      </MonoLabel>
+      <p className="font-display text-2xl uppercase text-bone mt-2 leading-none">
+        {value}
+      </p>
+    </div>
   );
 }
 
@@ -365,8 +264,6 @@ export default function ParentDashboardPage() {
   const [parentName, setParentName] = useState("Parent");
   const [student, setStudent] = useState<StudentView | null>(null);
   const [activeRequest, setActiveRequest] = useState<RequestRow | null>(null);
-  // Server-derived linked student id (from getSessionUser). The authoritative
-  // identity for the active request — never hardcoded, never empty.
   const [linkedStudentId, setLinkedStudentId] = useState<string | null>(null);
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [requesting, setRequesting] = useState(false);
@@ -400,8 +297,6 @@ export default function ParentDashboardPage() {
       if (current && row.request_id === current.request_id) return row;
       return current ?? null;
     });
-    // The QR is single-use and server-issued once; once the request leaves the
-    // active window, clear it from memory (no trust placed in the payload).
     if (row.status !== "REQUESTED" && row.status !== "AWAITING_TEACHER") {
       setQrToken(null);
     }
@@ -409,8 +304,6 @@ export default function ParentDashboardPage() {
 
   useTableChanges<RequestRow>(supabase, "dismissal_requests", "*", handleChange);
 
-  // Load the real authenticated parent, their linked student, and any active
-  // request on mount.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -442,8 +335,8 @@ export default function ParentDashboardPage() {
           .eq("student_id", linkedStudentId)
           .maybeSingle();
 
-        let className = "Tulip";
-        let section = "Nursery";
+        let className = "—";
+        let section = "—";
         if (stu?.class_id) {
           const { data: cls } = await supabase
             .from("classes")
@@ -495,8 +388,7 @@ export default function ParentDashboardPage() {
       const data = await createDismissalRequest();
       // Re-fetch the authoritative row (RLS-scoped to the linked student) rather
       // than trusting a client-assembled object. This guarantees student_id is
-      // the real, server-derived id so subsequent realtime updates from
-      // gate/teacher match and are never ignored (Phase 8 bug).
+      // the real, server-derived id so subsequent realtime updates match.
       const { data: created } = await supabase
         .from("dismissal_requests")
         .select("request_id, status, expires_at, student_id")
@@ -505,7 +397,6 @@ export default function ParentDashboardPage() {
       if (created) {
         setActiveRequest(created as RequestRow);
       } else if (linkedStudentId) {
-        // Fallback: assemble from the server response + authoritative id.
         setActiveRequest({
           request_id: data.request_id,
           status: "REQUESTED",
@@ -513,7 +404,7 @@ export default function ParentDashboardPage() {
           student_id: linkedStudentId
         });
       }
-      setQrToken(data.token); // returned exactly once to this parent
+      setQrToken(data.token);
     } catch (e) {
       const err = e as { code?: string; status?: number };
       if (err?.code === "CONFLICT" || err?.status === 409) {
@@ -532,8 +423,6 @@ export default function ParentDashboardPage() {
     setError(null);
     try {
       await cancelDismissal(activeRequest.request_id);
-      // Realtime will also deliver the UPDATE; we set it optimistically so the
-      // UI flips immediately.
       setActiveRequest({ ...activeRequest, status: "CANCELLED" });
       setQrToken(null);
     } catch (e) {
@@ -549,6 +438,8 @@ export default function ParentDashboardPage() {
   }
 
   const isActive = status === "REQUESTED" || status === "AWAITING_TEACHER";
+  const isFinal = ["DISMISSED", "REJECTED", "CANCELLED", "EXPIRED"].includes(status);
+  const now = new Date();
 
   return (
     <>
@@ -562,40 +453,152 @@ export default function ParentDashboardPage() {
       />
 
       <main className="pt-24 pb-16 section-shell">
-        <WelcomeRow parentName={parentName} />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="flex items-end justify-between border-b border-line pb-6 gap-4 flex-wrap"
+        >
+          <div>
+            <Eyebrow />
+            <h2 className="font-display text-display-md uppercase text-bone mt-4 leading-none">
+              {parentName}
+            </h2>
+          </div>
+          <div className="text-right">
+            <MonoLabel size="sm" tone="muted">
+              {now.toLocaleDateString("en-US", { weekday: "long" })}
+            </MonoLabel>
+            <p className="font-mono text-mono-md text-bone mt-1 tabular-nums">
+              {now.toLocaleString("en-US", {
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit"
+              })}
+            </p>
+          </div>
+        </motion.div>
+
         {authNote && (
           <div className="mt-10">
-            <Panel withTopBar topBar={<span>00 / ACCESS</span>}>
-              <div className="p-7 flex flex-col gap-5">
-                <p className="font-mono text-mono-sm uppercase tracking-widest text-muted">
-                  {authNote}
-                </p>
-                <Link
-                  href="/login"
-                  className="h-12 px-5 inline-flex items-center justify-center gap-3 bg-accent text-white font-mono uppercase tracking-widest text-mono-sm font-semibold shadow-accent-glow w-fit hover:-translate-y-0.5 hover:bg-accent-deep transition-all"
-                >
-                  <Icon name="arrow.right" className="h-4 w-4" strokeWidth={2} />
-                  Sign In
-                </Link>
-              </div>
-            </Panel>
+            <AccessNote message={authNote} signInHref="/login" />
           </div>
         )}
+
         {!authNote && (
           <div className="mt-10 grid gap-8">
-            <StudentCard
-              student={student}
-              status={status}
-              onRequest={handleRequest}
-              onCancel={handleCancel}
-              requesting={requesting}
-              cancelling={cancelling}
-              error={error}
-              countdown={countdown}
-              qrToken={isActive ? qrToken : null}
-            />
-            <InfoGrid />
-            <Footer />
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
+            >
+              <Panel
+                withTopBar
+                topBar={
+                  <>
+                    <span>02 / STUDENT · ACTIVE</span>
+                    {isActive && (
+                      <span className="text-success flex items-center gap-2">
+                        <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_8px_#B7EF42] animate-pulse-dot" />
+                        LIVE
+                      </span>
+                    )}
+                  </>
+                }
+              >
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-8 p-7">
+                  <div className="flex items-start gap-5">
+                    <div className="h-16 w-16 hairline flex items-center justify-center text-accent shrink-0">
+                      <Icon name="user" className="h-7 w-7" strokeWidth={1.4} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <MonoLabel size="sm" tone="muted">
+                        Student
+                      </MonoLabel>
+                      <h3 className="font-display text-3xl uppercase text-bone mt-1 leading-none">
+                        {student?.name ?? "—"}
+                      </h3>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <Spec label="GRADE" value={student?.section ?? "—"} />
+                        <Spec label="CLASS" value={student?.className ?? "—"} />
+                        <Spec label="ADM" value={student?.admissionNo ?? "—"} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-stretch gap-3 min-w-[260px] w-full">
+                    {isFinal ? (
+                      <OutcomeCard
+                        status={status}
+                        onRequest={handleRequest}
+                        requesting={requesting}
+                      />
+                    ) : isActive ? (
+                      <QrReveal
+                        status={status}
+                        countdown={countdown}
+                        qrToken={qrToken}
+                        cancelling={cancelling}
+                        onCancel={handleCancel}
+                      />
+                    ) : (
+                      <>
+                        <PrimaryButton
+                          onClick={handleRequest}
+                          disabled={requesting}
+                          loading={requesting}
+                          aria-label="Request dismissal"
+                        >
+                          <Icon name="walk" className="h-4 w-4" strokeWidth={2} />
+                          Request Dismissal
+                        </PrimaryButton>
+                        {error && <Alert>{error}</Alert>}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </Panel>
+            </motion.div>
+
+            <motion.div
+              initial="hidden"
+              animate="show"
+              variants={{
+                hidden: {},
+                show: { transition: { staggerChildren: 0.06, delayChildren: 0.2 } }
+              }}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-line"
+            >
+              {[
+                { icon: "car" as const, label: "Pickup Method", value: "Parent Pickup" },
+                { icon: "user" as const, label: "Authorized", value: "Linked Guardian" },
+                { icon: "settings" as const, label: "Class", value: student?.className ?? "—" },
+                { icon: "history" as const, label: "Admission", value: student?.admissionNo ?? "—" }
+              ].map((item) => (
+                <motion.div
+                  key={item.label}
+                  variants={{
+                    hidden: { opacity: 0, y: 16 },
+                    show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } }
+                  }}
+                >
+                  <InfoCard icon={item.icon} label={item.label} value={item.value} />
+                </motion.div>
+              ))}
+            </motion.div>
+
+            <footer className="mt-2 border-t border-line pt-8 flex flex-wrap items-center justify-between gap-4">
+              <MonoLabel size="xs" tone="muted">
+                DISMISS / V0.1 / MIT — DISMISSFLOW EPS
+              </MonoLabel>
+              <div className="flex items-center gap-4">
+                <MonoLabel size="xs" tone="muted">
+                  PUSH · REALTIME
+                </MonoLabel>
+                <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_10px_#B7EF42] animate-pulse-dot" />
+              </div>
+            </footer>
           </div>
         )}
       </main>

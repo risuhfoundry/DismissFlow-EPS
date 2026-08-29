@@ -8,6 +8,10 @@ import { MonoLabel } from "@/components/ui/MonoLabel";
 import { Panel } from "@/components/ui/Panel";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { TopNav } from "@/components/ui/TopNav";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { AccessNote } from "@/components/ui/AccessNote";
+import { LoadingState, EmptyState } from "@/components/ui/StateBlock";
+import { GhostButton } from "@/components/ui/Button";
 import type { DismissalStatus } from "@/lib/dismissal/state";
 import { getSessionUser } from "@/lib/auth/session";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -87,31 +91,33 @@ export default function ParentHistoryPage() {
       />
 
       <main className="pt-24 pb-16 section-shell">
-        <span className="eyebrow">
-          <i />
-          02 / HISTORY
-        </span>
-        <h2 className="font-display text-display-md uppercase text-bone mt-4">
-          Dismissal History
-        </h2>
-        <p className="text-muted mt-3 max-w-2xl">
-          Recent pickup requests for your linked child. RLS limits this list to
-          the child on your account; the audit log retains the full server-side
-          trail.
-        </p>
+        <PageHeader
+          eyebrow="02 / HISTORY"
+          title="Dismissal History"
+          description="Recent pickup requests for your linked child. RLS limits this list to the child on your account; the audit log retains the full server-side trail."
+        />
 
         {authNote && (
           <div className="mt-8">
-            <Panel withTopBar topBar={<span>00 / ACCESS</span>}>
-              <div className="p-7 font-mono text-mono-sm uppercase tracking-widest text-muted">
-                {authNote}
+            <AccessNote message={authNote} signInHref="/login" />
+          </div>
+        )}
+
+        {error && (
+          <div className="mt-8">
+            <Panel withTopBar topBar={<span>02 / HISTORY</span>}>
+              <div className="p-7">
+                <span className="flex items-center gap-2 font-mono uppercase tracking-widest text-mono-sm text-danger">
+                  <Icon name="x" className="h-4 w-4" strokeWidth={2} />
+                  {error}
+                </span>
               </div>
             </Panel>
           </div>
         )}
 
-        {!authNote && (
-          <div className="mt-10">
+        {!authNote && !error && (
+          <div className="mt-8">
             <Panel
               withTopBar
               topBar={
@@ -122,15 +128,9 @@ export default function ParentHistoryPage() {
               }
             >
               {loading ? (
-                <div className="p-10 flex items-center justify-center">
-                  <Icon name="timer" className="h-5 w-5 text-muted" />
-                </div>
-              ) : error ? (
-                <div className="p-7 font-mono text-mono-sm uppercase tracking-widest text-danger">
-                  {error}
-                </div>
+                <LoadingState message="Loading history…" />
               ) : rows.length === 0 ? (
-                <div className="p-7 text-muted">No requests yet.</div>
+                <EmptyState message="No requests yet." icon="history" />
               ) : (
                 <ul className="divide-y divide-line">
                   {rows.map((r, idx) => (

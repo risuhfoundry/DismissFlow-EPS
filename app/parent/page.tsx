@@ -365,6 +365,9 @@ export default function ParentDashboardPage() {
   const [parentName, setParentName] = useState("Parent");
   const [student, setStudent] = useState<StudentView | null>(null);
   const [activeRequest, setActiveRequest] = useState<RequestRow | null>(null);
+  // Server-derived linked student id (from getSessionUser). The authoritative
+  // identity for the active request — never hardcoded, never empty.
+  const [linkedStudentId, setLinkedStudentId] = useState<string | null>(null);
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [requesting, setRequesting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -380,28 +383,28 @@ export default function ParentDashboardPage() {
 
   const status$ = useRealtimeStatus(supabase, "dismissal_requests");
 
-  // Live updates: when any dismissal_request row for this parent changes,
-  // reflect it. The query is RLS-scoped, so we only ever receive rows for the
-  // linked student.
+  // Realtime handler — the server is the authority; the browser only reflects.
+  // RLS already limits the stream to the linked student, but we still guard on
+  // student_id so a mismatched/stale payload can't hijack the dashboard. Active
+  // states (REQUESTED / AWAITING_TEACHER) replace the view; a final state only
+  // updates the *same* request we're already tracking, so a historical row can
+  // never take over. No client-side status decision is ever made here.
   const handleChange = useCallback((row: RequestRow) => {
     setActiveRequest((current) => {
-      // Ignore rows that don't match our current active request — RLS already
-      // limits the stream to the linked student, but a different student_id
-      // would mean a stale subscription.
-      if (current && row.student_id !== current.student_id) return current;
-      if (
-        row.status === "REQUESTED" ||
-        row.status === "AWAITING_TEACHER"
-      ) {
-        return row;
+      if (row.student_id && current && row.student_id !== current.student_id) {
+        return current;
       }
-      // Final state reached — drop the QR (the plaintext was server-issued
-      // once and is no longer meaningful), and the StatusPill will flip.
-      if (current && row.request_id === current.request_id) {
-        setQrToken(null);
-      }
-      return row;
+      const isActive =
+        row.status === "REQUESTED" || row.status === "AWAITING_TEACHER";
+      if (isActive) return row;
+      if (current && row.request_id === current.request_id) return row;
+      return current ?? null;
     });
+    // The QR is single-use and server-issued once; once the request leaves the
+    // active window, clear it from memory (no trust placed in the payload).
+    if (row.status !== "REQUESTED" && row.status !== "AWAITING_TEACHER") {
+      setQrToken(null);
+    }
   }, []);
 
   useTableChanges<RequestRow>(supabase, "dismissal_requests", "*", handleChange);
@@ -430,6 +433,7 @@ export default function ParentDashboardPage() {
           setAuthNote("No linked student for this account.");
           return;
         }
+        setLinkedStudentId(linkedStudentId);
         if (user.email) setParentName(user.email);
 
         const { data: stu } = await supabase
@@ -489,12 +493,26 @@ export default function ParentDashboardPage() {
     setError(null);
     try {
       const data = await createDismissalRequest();
-      setActiveRequest({
-        request_id: data.request_id,
-        status: "REQUESTED",
-        expires_at: data.expires_at,
-        student_id: student?.admissionNo ? "" : ""
-      });
+      // Re-fetch the authoritative row (RLS-scoped to the linked student) rather
+      // than trusting a client-assembled object. This guarantees student_id is
+      // the real, server-derived id so subsequent realtime updates from
+      // gate/teacher match and are never ignored (Phase 8 bug).
+      const { data: created } = await supabase
+        .from("dismissal_requests")
+        .select("request_id, status, expires_at, student_id")
+        .eq("request_id", data.request_id)
+        .maybeSingle();
+      if (created) {
+        setActiveRequest(created as RequestRow);
+      } else if (linkedStudentId) {
+        // Fallback: assemble from the server response + authoritative id.
+        setActiveRequest({
+          request_id: data.request_id,
+          status: "REQUESTED",
+          expires_at: data.expires_at,
+          student_id: linkedStudentId
+        });
+      }
       setQrToken(data.token); // returned exactly once to this parent
     } catch (e) {
       const err = e as { code?: string; status?: number };

@@ -21,6 +21,17 @@
     color: #ffffff;
   }
 
+  /* Visible keyboard focus for non-button controls (buttons carry their own
+     ring via the Button component). Outlined controls (inputs, links) get a
+     blue hairline so keyboard users can see where focus is. */
+  input:focus-visible,
+  a:focus-visible,
+  [role="button"]:focus-visible,
+  summary:focus-visible {
+    outline: 2px solid rgba(59, 130, 246, 0.65);
+    outline-offset: 2px;
+  }
+
   /* Thin mono scrollbar — Kernel-style. */
   ::-webkit-scrollbar {
     width: 6px;

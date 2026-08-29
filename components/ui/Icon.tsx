@@ -11,7 +11,9 @@ type IconName =
   | "car"
   | "history"
   | "settings"
-  | "scan";
+  | "scan"
+  | "menu"
+  | "close";
 
 const PATHS: Record<IconName, JSX.Element> = {
   "arrow.right": <path d="M5 12h14M13 6l6 6-6 6" />,
@@ -74,7 +76,15 @@ const PATHS: Record<IconName, JSX.Element> = {
       <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
       <path d="M3 12h18" />
     </>
-  )
+  ),
+  menu: (
+    <>
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+    </>
+  ),
+  close: <path d="M6 6l12 12M18 6L6 18" />
 };
 
 export function Icon({

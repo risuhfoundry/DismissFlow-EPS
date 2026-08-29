@@ -14,15 +14,77 @@ import { scanQr, type ScanResult } from "@/lib/dismissal/client";
 import { useRealtimeStatus } from "@/lib/realtime/subs";
 import { useQrScanner } from "@/lib/qr/scan";
 
-const NAV_LINKS = [
-  { label: "Scanner", href: "/gate" }
-];
+const NAV_LINKS = [{ label: "Scanner", href: "/gate" }];
 
 type Verdict =
   | { kind: "idle" }
   | { kind: "scanning" }
   | { kind: "valid"; studentName: string; className: string }
   | { kind: "invalid"; code: string; message: string };
+
+// Maps a backend error code to a human title, plain-language detail, and the
+// concrete next action for the gate operator. Codes come from the scan-qr Edge
+// Function / consume_qr_scan RPC (Docs/architecture.md §11.2, §14.3).
+function describeError(
+  code: string,
+  fallback: string
+): { title: string; detail: string; action: string } {
+  // 401 family — the live scan-qr Edge Function may return the spec-named
+  // "UNAUTHENTICATED" or a gateway-adjacent variant ("UNAUTHORIZED_*"). All of
+  // them mean the gate session is gone and the operator must sign in again.
+  if (code === "UNAUTHENTICATED" || code.startsWith("UNAUTHORIZED")) {
+    return {
+      title: "Session Expired",
+      detail: "Your gate session is no longer valid.",
+      action: "Sign in again at /login/gate."
+    };
+  }
+  switch (code) {
+    case "GATE_REQUIRED":
+    case "FORBIDDEN":
+      return {
+        title: "Not Authorized",
+        detail: "This account is not a gate account.",
+        action: "Sign in with a gate account."
+      };
+    case "INVALID_QR":
+      return {
+        title: "Invalid QR",
+        detail: "This QR code could not be read as a dismissal token.",
+        action: "Ask the parent to show the QR again."
+      };
+    case "QR_ALREADY_USED":
+      return {
+        title: "Already Used",
+        detail: "This QR code has already been scanned.",
+        action: "Do not scan it again — the request is already being processed."
+      };
+    case "QR_EXPIRED":
+      return {
+        title: "Expired",
+        detail: "This QR code has expired.",
+        action: "Ask the parent to generate a new request."
+      };
+    case "REQUEST_NOT_SCANNABLE":
+      return {
+        title: "Not Scannable",
+        detail: "This request cannot be scanned right now.",
+        action: "The request may have been cancelled or already dismissed."
+      };
+    case "INTERNAL_ERROR":
+      return {
+        title: "Scan Failed",
+        detail: fallback || "The scan could not be completed.",
+        action: "Try again in a moment."
+      };
+    default:
+      return {
+        title: "Scan Failed",
+        detail: fallback || "The scan could not be completed.",
+        action: "Try again."
+      };
+  }
+}
 
 export default function GateScannerPage() {
   const supabase = getSupabaseBrowserClient();
@@ -47,7 +109,11 @@ export default function GateScannerPage() {
           className: result.student.class
         });
       } else {
-        setVerdict({ kind: "invalid", code: result.code, message: result.message });
+        setVerdict({
+          kind: "invalid",
+          code: result.code,
+          message: result.message
+        });
       }
     } catch {
       setVerdict({
@@ -57,15 +123,17 @@ export default function GateScannerPage() {
       });
     } finally {
       setBusy(false);
-      // Allow another scan after a short pause so the gate staff can read the
-      // result before the next QR is read.
+      // Keep the scanner paused while the result is shown; the operator presses
+      // "Next Scan" to resume. This prevents accidental double-scanning of the
+      // same QR while the first request is still processing.
       setTimeout(() => {
         debounceRef.current = false;
-      }, 2500);
+      }, 1500);
     }
   }, []);
 
-  const { videoRef, status, error, start, stop } = useQrScanner(handleDetect);
+  const { videoRef, canvasRef, status, error, start, stop, resume } =
+    useQrScanner(handleDetect);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,8 +141,8 @@ export default function GateScannerPage() {
       const {
         data: { user }
       } = await supabase.auth.getUser();
-      if (!user) {
-        if (!cancelled) setAuthNote("Sign in at /login/gate to open the scanner.");
+      if (!user && !cancelled) {
+        setAuthNote("Sign in at /login/gate to open the scanner.");
       }
     })();
     return () => {
@@ -84,12 +152,28 @@ export default function GateScannerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Resume the camera decode loop and clear the result panel for the next scan.
+  function handleNext() {
+    setVerdict({ kind: "idle" });
+    resume();
+  }
+
   async function handleManualSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!manualToken.trim()) return;
-    await handleDetect(manualToken.trim());
+    const token = manualToken.trim();
     setManualToken("");
+    await handleDetect(token);
   }
+
+  const overlayLabel =
+    status === "denied"
+      ? "Permission denied"
+      : status === "error"
+        ? "Camera unavailable"
+        : status === "requesting"
+          ? "Starting…"
+          : "Camera off";
 
   return (
     <>
@@ -111,9 +195,9 @@ export default function GateScannerPage() {
           Pickup Verification
         </h2>
         <p className="text-muted mt-3 max-w-2xl">
-          Point the camera at the parent&apos;s QR. The decoded token is sent
-          to the server, which validates the hash, expiry, and single-use state
-          and returns a minimal verdict.
+          Point the camera at the parent&apos;s QR. The decoded token is sent to
+          the server, which validates the hash, expiry, and single-use state and
+          returns a minimal verdict. The browser never decides validity.
         </p>
 
         {authNote && (
@@ -153,10 +237,12 @@ export default function GateScannerPage() {
                   muted
                   className="absolute inset-0 w-full h-full object-cover"
                 />
+                {/* Hidden offscreen canvas used to decode each camera frame. */}
+                <canvas ref={canvasRef} className="hidden" aria-hidden="true" />
                 {status !== "scanning" && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-muted font-mono uppercase tracking-widest text-mono-sm">
                     <Icon name="scan" className="h-10 w-10" strokeWidth={1.2} />
-                    <span>{status === "denied" ? "Permission denied" : "Camera off"}</span>
+                    <span>{overlayLabel}</span>
                   </div>
                 )}
                 {/* Decorative scan reticle */}
@@ -202,7 +288,7 @@ export default function GateScannerPage() {
 
           <Panel withTopBar topBar={<span>02 / RESULT</span>}>
             <div className="p-5 min-h-[220px] flex flex-col gap-4">
-              <VerdictPanel verdict={verdict} onReset={() => setVerdict({ kind: "idle" })} />
+              <VerdictPanel verdict={verdict} onNext={handleNext} />
             </div>
           </Panel>
         </div>
@@ -211,7 +297,9 @@ export default function GateScannerPage() {
           <Panel withTopBar topBar={<span>03 / MANUAL ENTRY</span>}>
             <form onSubmit={handleManualSubmit} className="p-5 flex flex-col gap-3">
               <p className="font-mono text-mono-xs uppercase tracking-widest text-muted">
-                If the camera is unavailable, paste the token below.
+                If the camera is unavailable, paste the token below. It is sent
+                to the server exactly like a scanned code — no client-side
+                validation is performed.
               </p>
               <input
                 type="text"
@@ -234,10 +322,10 @@ export default function GateScannerPage() {
 
 function VerdictPanel({
   verdict,
-  onReset
+  onNext
 }: {
   verdict: Verdict;
-  onReset: () => void;
+  onNext: () => void;
 }) {
   if (verdict.kind === "idle") {
     return (
@@ -268,26 +356,32 @@ function VerdictPanel({
         </div>
         <div className="hairline bg-ink p-4 flex flex-col gap-3">
           <div>
-            <MonoLabel size="xs" tone="muted">STUDENT</MonoLabel>
+            <MonoLabel size="xs" tone="muted">
+              STUDENT
+            </MonoLabel>
             <p className="font-display text-2xl uppercase text-bone leading-none mt-1">
               {verdict.studentName}
             </p>
           </div>
           <div>
-            <MonoLabel size="xs" tone="muted">CLASS</MonoLabel>
+            <MonoLabel size="xs" tone="muted">
+              CLASS
+            </MonoLabel>
             <p className="font-mono text-mono-sm text-bone uppercase tracking-wider mt-1">
               {verdict.className}
             </p>
           </div>
           <div>
-            <MonoLabel size="xs" tone="muted">STATUS</MonoLabel>
+            <MonoLabel size="xs" tone="muted">
+              STATUS
+            </MonoLabel>
             <p className="font-mono text-mono-sm text-accent uppercase tracking-wider mt-1">
               Awaiting Teacher
             </p>
           </div>
         </div>
         <button
-          onClick={onReset}
+          onClick={onNext}
           className="h-10 px-4 inline-flex items-center justify-center gap-2 hairline text-muted hover:text-bone font-mono uppercase tracking-widest text-mono-xs transition-colors"
         >
           <Icon name="arrow.right" className="h-3.5 w-3.5" strokeWidth={2} />
@@ -296,6 +390,9 @@ function VerdictPanel({
       </motion.div>
     );
   }
+
+  // invalid
+  const guide = describeError(verdict.code, verdict.message);
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -305,16 +402,19 @@ function VerdictPanel({
     >
       <div className="flex items-center gap-2 text-danger font-mono uppercase tracking-widest text-mono-sm">
         <Icon name="x" className="h-4 w-4" strokeWidth={2.4} />
-        Invalid QR
+        {guide.title}
       </div>
       <p className="font-mono text-mono-sm text-bone leading-relaxed">
-        {verdict.message}
+        {guide.detail}
+      </p>
+      <p className="font-mono text-mono-xs uppercase tracking-widest text-muted">
+        Next: {guide.action}
       </p>
       <p className="font-mono text-mono-xs uppercase tracking-widest text-muted">
         Code: {verdict.code}
       </p>
       <button
-        onClick={onReset}
+        onClick={onNext}
         className="h-10 px-4 inline-flex items-center justify-center gap-2 hairline text-muted hover:text-bone font-mono uppercase tracking-widest text-mono-xs transition-colors"
       >
         <Icon name="arrow.right" className="h-3.5 w-3.5" strokeWidth={2} />

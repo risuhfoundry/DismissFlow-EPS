@@ -6,9 +6,12 @@ import { motion } from "framer-motion";
 import { Icon } from "@/components/ui/Icon";
 import { MonoLabel } from "@/components/ui/MonoLabel";
 import { Panel } from "@/components/ui/Panel";
-import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import { PrimaryButton, SecondaryButton, GhostButton } from "@/components/ui/Button";
 import { StatusIndicator } from "@/components/ui/StatusIndicator";
 import { TopNav } from "@/components/ui/TopNav";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { AccessNote } from "@/components/ui/AccessNote";
+import { Alert } from "@/components/ui/Alert";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { scanQr, type ScanResult } from "@/lib/dismissal/client";
 import { useRealtimeStatus } from "@/lib/realtime/subs";
@@ -29,9 +32,6 @@ function describeError(
   code: string,
   fallback: string
 ): { title: string; detail: string; action: string } {
-  // 401 family — the live scan-qr Edge Function may return the spec-named
-  // "UNAUTHENTICATED" or a gateway-adjacent variant ("UNAUTHORIZED_*"). All of
-  // them mean the gate session is gone and the operator must sign in again.
   if (code === "UNAUTHENTICATED" || code.startsWith("UNAUTHORIZED")) {
     return {
       title: "Session Expired",
@@ -123,9 +123,6 @@ export default function GateScannerPage() {
       });
     } finally {
       setBusy(false);
-      // Keep the scanner paused while the result is shown; the operator presses
-      // "Next Scan" to resume. This prevents accidental double-scanning of the
-      // same QR while the first request is still processing.
       setTimeout(() => {
         debounceRef.current = false;
       }, 1500);
@@ -152,7 +149,6 @@ export default function GateScannerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Resume the camera decode loop and clear the result panel for the next scan.
   function handleNext() {
     setVerdict({ kind: "idle" });
     resume();
@@ -187,39 +183,19 @@ export default function GateScannerPage() {
       />
 
       <main className="pt-24 pb-16 section-shell">
-        <span className="eyebrow">
-          <i />
-          02 / GATE SCANNER
-        </span>
-        <h2 className="font-display text-display-md uppercase text-bone mt-4">
-          Pickup Verification
-        </h2>
-        <p className="text-muted mt-3 max-w-2xl">
-          Point the camera at the parent&apos;s QR. The decoded token is sent to
-          the server, which validates the hash, expiry, and single-use state and
-          returns a minimal verdict. The browser never decides validity.
-        </p>
+        <PageHeader
+          eyebrow="02 / GATE SCANNER"
+          title="Pickup Verification"
+          description="Point the camera at the parent's QR. The decoded token is sent to the server, which validates the hash, expiry, and single-use state and returns a minimal verdict. The browser never decides validity."
+        />
 
         {authNote && (
           <div className="mt-8">
-            <Panel withTopBar topBar={<span>00 / ACCESS</span>}>
-              <div className="p-7 flex flex-col gap-5">
-                <p className="font-mono text-mono-sm uppercase tracking-widest text-muted">
-                  {authNote}
-                </p>
-                <Link
-                  href="/login/gate"
-                  className="h-12 px-5 inline-flex items-center gap-3 bg-accent text-white font-mono uppercase tracking-widest text-mono-sm font-semibold shadow-accent-glow w-fit"
-                >
-                  <Icon name="arrow.right" className="h-4 w-4" strokeWidth={2} />
-                  Sign In
-                </Link>
-              </div>
-            </Panel>
+            <AccessNote message={authNote} signInHref="/login/gate" signInLabel="Sign In" />
           </div>
         )}
 
-        <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_360px]">
+        <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_360px]">
           <Panel
             withTopBar
             topBar={
@@ -235,9 +211,9 @@ export default function GateScannerPage() {
                   ref={videoRef}
                   playsInline
                   muted
+                  aria-label="Gate camera preview"
                   className="absolute inset-0 w-full h-full object-cover"
                 />
-                {/* Hidden offscreen canvas used to decode each camera frame. */}
                 <canvas ref={canvasRef} className="hidden" aria-hidden="true" />
                 {status !== "scanning" && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-muted font-mono uppercase tracking-widest text-mono-sm">
@@ -245,7 +221,6 @@ export default function GateScannerPage() {
                     <span>{overlayLabel}</span>
                   </div>
                 )}
-                {/* Decorative scan reticle */}
                 {status === "scanning" && (
                   <>
                     {[
@@ -260,22 +235,19 @@ export default function GateScannerPage() {
                         style={{ borderWidth: 2 }}
                       />
                     ))}
+                    <div className="absolute left-0 right-0 top-1/2 h-px bg-accent/50" />
                   </>
                 )}
               </div>
 
-              {error && (
-                <p className="font-mono text-mono-xs uppercase tracking-widest text-danger">
-                  {error}
-                </p>
-              )}
+              {error && <Alert tone="danger">{error}</Alert>}
 
               <div className="flex flex-wrap gap-3">
                 {status === "scanning" ? (
-                  <PrimaryButton onClick={stop}>
+                  <SecondaryButton onClick={stop}>
                     <Icon name="x" className="h-4 w-4" strokeWidth={2} />
                     Stop Camera
-                  </PrimaryButton>
+                  </SecondaryButton>
                 ) : (
                   <PrimaryButton onClick={start} disabled={busy}>
                     <Icon name="scan" className="h-4 w-4" strokeWidth={2} />
@@ -287,7 +259,7 @@ export default function GateScannerPage() {
           </Panel>
 
           <Panel withTopBar topBar={<span>02 / RESULT</span>}>
-            <div className="p-5 min-h-[220px] flex flex-col gap-4">
+            <div className="p-5 min-h-[240px] flex flex-col gap-4">
               <VerdictPanel verdict={verdict} onNext={handleNext} />
             </div>
           </Panel>
@@ -306,9 +278,10 @@ export default function GateScannerPage() {
                 value={manualToken}
                 onChange={(e) => setManualToken(e.target.value)}
                 placeholder="paste token"
+                aria-label="Manual QR token"
                 className="h-12 px-4 bg-ink text-bone border border-line rounded-none font-mono text-mono-sm outline-none focus:border-accent transition-colors"
               />
-              <PrimaryButton type="submit" disabled={!manualToken.trim() || busy}>
+              <PrimaryButton type="submit" disabled={!manualToken.trim() || busy} className="self-start">
                 <Icon name="arrow.right" className="h-4 w-4" strokeWidth={2} />
                 Submit
               </PrimaryButton>
@@ -329,15 +302,15 @@ function VerdictPanel({
 }) {
   if (verdict.kind === "idle") {
     return (
-      <p className="font-mono text-mono-sm uppercase tracking-widest text-muted">
+      <p className="font-mono text-mono-sm uppercase tracking-widest text-muted m-auto">
         Awaiting a scan. Results will appear here.
       </p>
     );
   }
   if (verdict.kind === "scanning") {
     return (
-      <div className="flex items-center gap-3 text-accent font-mono uppercase tracking-widest text-mono-sm">
-        <Icon name="timer" className="h-4 w-4" strokeWidth={2} />
+      <div className="flex items-center gap-3 text-accent font-mono uppercase tracking-widest text-mono-sm m-auto">
+        <Icon name="timer" className="h-4 w-4 animate-spin" strokeWidth={2} />
         Validating…
       </div>
     );
@@ -349,6 +322,8 @@ function VerdictPanel({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
         className="flex flex-col gap-4"
+        role="status"
+        aria-live="polite"
       >
         <div className="flex items-center gap-2 text-success font-mono uppercase tracking-widest text-mono-sm">
           <Icon name="check" className="h-4 w-4" strokeWidth={2.4} />
@@ -380,18 +355,14 @@ function VerdictPanel({
             </p>
           </div>
         </div>
-        <button
-          onClick={onNext}
-          className="h-10 px-4 inline-flex items-center justify-center gap-2 hairline text-muted hover:text-bone font-mono uppercase tracking-widest text-mono-xs transition-colors"
-        >
+        <GhostButton onClick={onNext}>
           <Icon name="arrow.right" className="h-3.5 w-3.5" strokeWidth={2} />
           Next Scan
-        </button>
+        </GhostButton>
       </motion.div>
     );
   }
 
-  // invalid
   const guide = describeError(verdict.code, verdict.message);
   return (
     <motion.div
@@ -399,6 +370,8 @@ function VerdictPanel({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       className="flex flex-col gap-4"
+      role="alert"
+      aria-live="assertive"
     >
       <div className="flex items-center gap-2 text-danger font-mono uppercase tracking-widest text-mono-sm">
         <Icon name="x" className="h-4 w-4" strokeWidth={2.4} />
@@ -413,13 +386,10 @@ function VerdictPanel({
       <p className="font-mono text-mono-xs uppercase tracking-widest text-muted">
         Code: {verdict.code}
       </p>
-      <button
-        onClick={onNext}
-        className="h-10 px-4 inline-flex items-center justify-center gap-2 hairline text-muted hover:text-bone font-mono uppercase tracking-widest text-mono-xs transition-colors"
-      >
+      <GhostButton onClick={onNext}>
         <Icon name="arrow.right" className="h-3.5 w-3.5" strokeWidth={2} />
         Try Again
-      </button>
+      </GhostButton>
     </motion.div>
   );
 }

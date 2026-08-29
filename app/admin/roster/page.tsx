@@ -11,6 +11,9 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 const NAV_LINKS = [
   { label: "Overview", href: "/admin" },
   { label: "Roster", href: "/admin/roster" },
+  { label: "Classes", href: "/admin/classes" },
+  { label: "Users", href: "/admin/users" },
+  { label: "Monitor", href: "/admin/monitor" },
   { label: "Logs", href: "/admin/logs" }
 ];
 
@@ -28,6 +31,8 @@ export default function AdminRosterPage() {
   const supabase = getSupabaseBrowserClient();
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [students, setStudents] = useState<StudentRow[]>([]);
+  // student_id -> has at least one linked guardian (from student_guardians).
+  const [guardianLinked, setGuardianLinked] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [authNote, setAuthNote] = useState<string | null>(null);
   const [q, setQ] = useState("");
@@ -44,7 +49,7 @@ export default function AdminRosterPage() {
           setLoading(false);
           return;
         }
-        const [{ data: cls }, { data: stu }] = await Promise.all([
+        const [{ data: cls }, { data: stu }, { data: sg }] = await Promise.all([
           supabase
             .from("classes")
             .select("class_id, class_name, section")
@@ -52,11 +57,18 @@ export default function AdminRosterPage() {
           supabase
             .from("students")
             .select("student_id, name, admission_no, gender, dob, class_id")
-            .order("admission_no", { ascending: true })
+            .order("admission_no", { ascending: true }),
+          // Only the linkage flag is needed — guardian PII is not pulled here.
+          supabase.from("student_guardians").select("student_id")
         ]);
         if (cancelled) return;
         setClasses((cls ?? []) as ClassRow[]);
         setStudents((stu ?? []) as StudentRow[]);
+        const linked: Record<string, boolean> = {};
+        for (const row of (sg ?? []) as { student_id: string }[]) {
+          linked[row.student_id] = true;
+        }
+        setGuardianLinked(linked);
       } catch {
         if (!cancelled) setAuthNote("Could not load the roster.");
       } finally {
@@ -86,7 +98,7 @@ export default function AdminRosterPage() {
             href="/admin"
             className="font-mono uppercase tracking-widest text-mono-xs text-muted hover:text-bone transition-colors"
           >
-            ← Back to overview
+            ← Overview
           </Link>
         }
       />
@@ -102,7 +114,8 @@ export default function AdminRosterPage() {
         <p className="text-muted mt-3 max-w-2xl">
           The full seeded roster. Admission numbers retain their leading
           zeroes (e.g. <span className="font-mono">040</span>,{" "}
-          <span className="font-mono">041</span>).
+          <span className="font-mono">041</span>). Guardian linkage is shown as
+          a flag only — no guardian PII is rendered here.
         </p>
 
         {authNote && (
@@ -151,11 +164,13 @@ export default function AdminRosterPage() {
                       <Th>GENDER</Th>
                       <Th>DOB</Th>
                       <Th>CLASS</Th>
+                      <Th>GUARDIAN</Th>
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.map((s) => {
                       const cls = classes.find((c) => c.class_id === s.class_id);
+                      const linked = !!guardianLinked[s.student_id];
                       return (
                         <tr key={s.student_id} className="border-b border-line/60 hover:bg-panel-alt transition-colors">
                           <Td>
@@ -167,6 +182,16 @@ export default function AdminRosterPage() {
                             {s.dob ?? "—"}
                           </Td>
                           <Td>{cls?.class_name ?? "—"}</Td>
+                          <Td>
+                            {linked ? (
+                              <span className="inline-flex items-center gap-2 text-success">
+                                <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_8px_#B7EF42]" />
+                                <MonoLabel size="xs" tone="success">LINKED</MonoLabel>
+                              </span>
+                            ) : (
+                              <MonoLabel size="xs" tone="muted">NONE</MonoLabel>
+                            )}
+                          </Td>
                         </tr>
                       );
                     })}

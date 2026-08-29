@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Icon } from "@/components/ui/Icon";
 import { MonoLabel } from "@/components/ui/MonoLabel";
 import { TopNav } from "@/components/ui/TopNav";
+import { VersionTag } from "@/components/ui/VersionTag";
 
 const ROLES = [
   {
@@ -38,14 +39,7 @@ export default function HomePage() {
           { label: "Architecture", href: "https://github.com/risuhfoundry/DismissFlow-EPS/blob/main/Docs/architecture.md" },
           { label: "PRD", href: "https://github.com/risuhfoundry/DismissFlow-EPS/blob/main/Docs/PRD.md" }
         ]}
-        trailing={
-          <div className="flex items-center gap-2 hairline bg-panel px-3 py-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_8px_#B7EF42] animate-pulse-dot" />
-            <MonoLabel size="xs" tone="bone">
-              DISMISS / V0.1
-            </MonoLabel>
-          </div>
-        }
+        trailing={<VersionTag />}
       />
 
       <main className="pt-24 pb-16 section-shell">

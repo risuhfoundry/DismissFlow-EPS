@@ -1,19 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { motion } from "framer-motion";
 import { Icon } from "@/components/ui/Icon";
 import { MonoLabel } from "@/components/ui/MonoLabel";
 import { Panel } from "@/components/ui/Panel";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { StatusIndicator } from "@/components/ui/StatusIndicator";
 import { TopNav } from "@/components/ui/TopNav";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useRealtimeStatus } from "@/lib/realtime/subs";
 import type { DismissalStatus } from "@/lib/dismissal/state";
 
 const NAV_LINKS = [
   { label: "Overview", href: "/admin" },
   { label: "Roster", href: "/admin/roster" },
+  { label: "Classes", href: "/admin/classes" },
+  { label: "Users", href: "/admin/users" },
+  { label: "Monitor", href: "/admin/monitor" },
   { label: "Logs", href: "/admin/logs" }
 ];
 
@@ -43,6 +47,7 @@ function formatTime(iso: string | null): string {
 
 export default function AdminLogsPage() {
   const supabase = getSupabaseBrowserClient();
+  const status$ = useRealtimeStatus(supabase, "dismissal_events");
   const [rows, setRows] = useState<LogRow[]>([]);
   const [students, setStudents] = useState<Record<string, StudentLite>>({});
   const [loading, setLoading] = useState(true);
@@ -103,14 +108,7 @@ export default function AdminLogsPage() {
     <>
       <TopNav
         links={NAV_LINKS}
-        trailing={
-          <Link
-            href="/admin"
-            className="font-mono uppercase tracking-widest text-mono-xs text-muted hover:text-bone transition-colors"
-          >
-            ← Back to overview
-          </Link>
-        }
+        trailing={<StatusIndicator status={status$} />}
       />
 
       <main className="pt-24 pb-16 section-shell">

@@ -244,7 +244,9 @@ export default function TeacherDetailPage() {
   }
 
   const decided =
-    request?.status === "DISMISSED" || request?.status === "REJECTED";
+    request?.status === "DISMISSED" ||
+    request?.status === "REJECTED" ||
+    request?.status === "CANCELLED";
 
   return (
     <>

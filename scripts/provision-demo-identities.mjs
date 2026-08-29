@@ -46,10 +46,37 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 });
 
 // Resolve an existing auth user id by email, or create one.
+//
+// On a re-run the auth user already exists (profiles are idempotent), but the
+// password we are about to print must still reach Auth — otherwise the script
+// would emit a fresh password that never gets applied, and the printed
+// credential would fail to sign in. So we (re)apply the password for existing
+// users. This keeps the script's contract honest: the printed password IS the
+// live credential.
 async function ensureAuthUser(email, password) {
   const { data: list } = await supabase.auth.admin.listUsers();
   const existing = (list?.users || []).find((u) => u.email === email);
-  if (existing) return { id: existing.id, created: false };
+  if (existing) {
+    try {
+      const { error } = await supabase.auth.admin.updateUserById(existing.id, {
+        password,
+        email_confirm: true
+      });
+      if (error) throw error;
+    } catch (e) {
+      // Supabase's admin update enforces a 6-character minimum that the demo
+      // parent accounts (password = admission number, e.g. "5851") do not meet.
+      // Those passwords are set once at creation and never change, so a policy
+      // error on a short password is expected and safe to ignore; the printed
+      // credential stays valid. Any other error is a real failure.
+      const msg = e?.message || "";
+      if (password.length < 6 && /password/i.test(msg)) {
+        return { id: existing.id, created: false };
+      }
+      throw new Error(`updateUser ${email}: ${msg}`);
+    }
+    return { id: existing.id, created: false };
+  }
 
   const { data, error } = await supabase.auth.admin.createUser({
     email,

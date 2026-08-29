@@ -12,16 +12,40 @@
 // Source of truth: Docs/architecture.md §11.3/§11.4, §14; Phase 5 error contract.
 
 // -----------------------------------------------------------------------------
+// CORS. The browser calls these functions cross-origin (the app is served from a
+// different origin than *.supabase.co). Without these headers the browser blocks
+// the response and the OPTIONS preflight never reaches the handler. We echo the
+// caller's Origin (falling back to "*" for non-browser callers) and do NOT set
+// Access-Control-Allow-Credentials, so a wildcard/echoed origin is safe — the JWT
+// remains the sole authorization gate (matches create-dismissal-request).
+// -----------------------------------------------------------------------------
+export function corsHeaders(origin?: string | null): Record<string, string> {
+  return {
+    "Access-Control-Allow-Origin": origin && origin.length > 0 ? origin : "*",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, x-supabase-client, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Max-Age": "86400"
+  };
+}
+
+// -----------------------------------------------------------------------------
 // HTTP envelope helpers. We use the structured { error: { code, message } }
 // envelope (matching the scan-qr Edge Function) so clients get a machine-readable
-// code they can branch on.
+// code they can branch on. Every response carries CORS headers so the browser
+// accepts both successes and errors.
 // -----------------------------------------------------------------------------
-export function json(body: unknown, status: number): Response {
+export function json(
+  body: unknown,
+  status: number,
+  origin?: string | null
+): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       "Content-Type": "application/json",
-      "Cache-Control": "no-store"
+      "Cache-Control": "no-store",
+      ...corsHeaders(origin)
     }
   });
 }
@@ -29,9 +53,10 @@ export function json(body: unknown, status: number): Response {
 export function errorResponse(
   code: string,
   message: string,
-  status: number
+  status: number,
+  origin?: string | null
 ): Response {
-  return json({ error: { code, message } }, status);
+  return json({ error: { code, message } }, status, origin);
 }
 
 // -----------------------------------------------------------------------------

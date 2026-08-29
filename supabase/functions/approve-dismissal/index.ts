@@ -21,18 +21,30 @@ import {
   mapRpcDecision,
   mapDecisionError,
   json,
-  errorResponse
+  errorResponse,
+  corsHeaders
 } from "../_shared/decision-contract.ts";
 
 const DECISION = "DISMISSED" as const;
 
-function err(code: string, message: string, status: number): Response {
-  return errorResponse(code, message, status);
-}
-
 serve(async (req: Request) => {
+  const origin = req.headers.get("Origin");
+
+  // Preflight: browsers send OPTIONS before the credentialed POST. Respond with
+  // CORS headers and no body so the real request is allowed through. verify_jwt
+  // (enforced by the gateway) does not apply to preflights, and the actual POST
+  // still requires a valid JWT + teacher role below.
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders(origin) });
+  }
+
   if (req.method !== "POST") {
-    return err("METHOD_NOT_ALLOWED", "Method not allowed.", 405);
+    return errorResponse("METHOD_NOT_ALLOWED", "Method not allowed.", 405, origin);
+  }
+
+  // All error responses below carry CORS headers via this closure over `origin`.
+  function err(code: string, message: string, status: number): Response {
+    return errorResponse(code, message, status, origin);
   }
 
   // 1. Authenticate the caller from the Authorization header (never the body).
@@ -109,7 +121,7 @@ serve(async (req: Request) => {
 
   const outcome = mapRpcDecision(row, DECISION);
   if (outcome.ok) {
-    return json(outcome.body, outcome.status);
+    return json(outcome.body, outcome.status, origin);
   }
   return err(outcome.code, outcome.message, outcome.status);
 });

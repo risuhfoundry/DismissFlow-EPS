@@ -11,6 +11,14 @@
 //
 // The partial unique index `dismissal_requests_one_active_per_student` is the
 // ultimate guard against concurrent duplicate active requests (Phase 3 STEP 16).
+//
+// CORS: the browser calls this function cross-origin (the app is served from a
+// different origin than *.supabase.co). Without the headers below the browser
+// blocks the response, and the OPTIONS preflight never reaches the handler, so
+// the client only ever sees a network error. Authorization is still enforced by
+// `verify_jwt` (gateway) + the JWT check in step 1, so a permissive origin does
+// not weaken security — the QR token is only ever returned to the authenticated
+// parent who holds a valid JWT.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -25,23 +33,57 @@ interface ErrorBody {
   code: string;
 }
 
-function json(body: unknown, status: number): Response {
+// Echo the caller's Origin (falling back to "*" when none is sent, e.g. non-
+// browser callers). We do NOT set Access-Control-Allow-Credentials, so a
+// wildcard/echoed origin is safe; the JWT remains the sole authorization gate.
+function corsHeaders(origin?: string | null): Record<string, string> {
+  return {
+    "Access-Control-Allow-Origin": origin && origin.length > 0 ? origin : "*",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, x-supabase-client, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Max-Age": "86400"
+  };
+}
+
+function json(
+  body: unknown,
+  status: number,
+  origin?: string | null
+): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       "Content-Type": "application/json",
-      "Cache-Control": "no-store"
+      "Cache-Control": "no-store",
+      ...corsHeaders(origin)
     }
   });
 }
 
-function errorResponse(message: string, code: string, status: number): Response {
-  return json({ error: message, code } satisfies ErrorBody, status);
+function errorResponse(
+  message: string,
+  code: string,
+  status: number,
+  origin?: string | null
+): Response {
+  return json({ error: message, code } satisfies ErrorBody, status, origin);
 }
 
 serve(async (req: Request) => {
+  const origin = req.headers.get("Origin");
+
+  // Preflight: browsers send OPTIONS before the credentialed POST. Respond with
+  // CORS headers and no body so the real request is allowed through. `verify_jwt`
+  // (enforced by the gateway) does not apply to preflights, and the actual POST
+  // still requires a valid JWT below.
+  if (req.method === "OPTIONS") {
+    // 204 with no body is the correct preflight response.
+    return new Response(null, { status: 204, headers: corsHeaders(origin) });
+  }
+
   if (req.method !== "POST") {
-    return errorResponse("Method not allowed", "METHOD_NOT_ALLOWED", 405);
+    return errorResponse("Method not allowed", "METHOD_NOT_ALLOWED", 405, origin);
   }
 
   // 1. Authenticated? Extract the caller's JWT (never trust the body).
@@ -60,7 +102,7 @@ serve(async (req: Request) => {
   } = await supabase.auth.getUser(jwt);
 
   if (authError || !user) {
-    return errorResponse("Unauthenticated", "UNAUTHENTICATED", 401);
+    return errorResponse("Unauthenticated", "UNAUTHENTICATED", 401, origin);
   }
 
   // 2. Application profile exists + explicit role check.
@@ -71,16 +113,16 @@ serve(async (req: Request) => {
     .maybeSingle();
 
   if (pErr || !profile) {
-    return errorResponse("Application profile not found", "FORBIDDEN", 403);
+    return errorResponse("Application profile not found", "FORBIDDEN", 403, origin);
   }
   if (profile.role !== "parent") {
-    return errorResponse("Incorrect role", "FORBIDDEN", 403);
+    return errorResponse("Incorrect role", "FORBIDDEN", 403, origin);
   }
 
   // 3. Parent must have a linked student (server-derived, never from client).
   const studentId = profile.linked_student_id;
   if (!studentId) {
-    return errorResponse("Linked student not found", "NOT_FOUND", 404);
+    return errorResponse("Linked student not found", "NOT_FOUND", 404, origin);
   }
 
   // 4. Linked student must exist and be valid.
@@ -91,7 +133,7 @@ serve(async (req: Request) => {
     .maybeSingle();
 
   if (sErr || !student) {
-    return errorResponse("Linked student not found", "NOT_FOUND", 404);
+    return errorResponse("Linked student not found", "NOT_FOUND", 404, origin);
   }
 
   // 5. Defense-in-depth: no active request already (the partial unique index is
@@ -107,7 +149,8 @@ serve(async (req: Request) => {
     return errorResponse(
       "Active dismissal request already exists",
       "CONFLICT",
-      409
+      409,
+      origin
     );
   }
 
@@ -137,10 +180,11 @@ serve(async (req: Request) => {
       return errorResponse(
         "Active dismissal request already exists",
         "CONFLICT",
-        409
+        409,
+        origin
       );
     }
-    return errorResponse("Failed to create dismissal request", "INTERNAL", 500);
+    return errorResponse("Failed to create dismissal request", "INTERNAL", 500, origin);
   }
 
   const { error: qErr } = await supabase.from("qr_tokens").insert({
@@ -156,13 +200,14 @@ serve(async (req: Request) => {
       .from("dismissal_requests")
       .delete()
       .eq("request_id", request.request_id);
-    return errorResponse("Failed to issue QR token", "INTERNAL", 500);
+    return errorResponse("Failed to issue QR token", "INTERNAL", 500, origin);
   }
 
   // 8. Return token ONCE to the authenticated parent who created the request.
   //    The database holds only token_hash — never the plaintext.
   return json(
     { request_id: request.request_id, token, expires_at: expiresAt },
-    201
+    201,
+    origin
   );
 });

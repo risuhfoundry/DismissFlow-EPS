@@ -1,13 +1,19 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Icon } from "@/components/ui/Icon";
 import { MonoLabel } from "@/components/ui/MonoLabel";
 import { Panel } from "@/components/ui/Panel";
-import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import { PrimaryButton } from "@/components/ui/Button";
 import { TopNav } from "@/components/ui/TopNav";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { VersionTag } from "@/components/ui/VersionTag";
+import { Alert } from "@/components/ui/Alert";
+import { Input } from "@/components/ui/Input";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getSessionUser } from "@/lib/auth/session";
 import { signInStaff, type StaffRole } from "@/lib/auth/role-login";
 
 // Single sign-in surface for the staff roles. The route segment is the role
@@ -19,22 +25,19 @@ const ROLE_META: Record<StaffRole, { code: string; title: string; blurb: string;
   teacher: {
     code: "03",
     title: "Teacher Sign In",
-    blurb:
-      "Sign in with the teacher demo account to see the Tulip pickup queue.",
+    blurb: "Sign in with the teacher demo account to see your class pickup queue.",
     portal: "/teacher"
   },
   gate: {
     code: "02",
     title: "Gate Sign In",
-    blurb:
-      "Sign in with the gate demo account to open the camera scanner.",
+    blurb: "Sign in with the gate demo account to open the camera scanner.",
     portal: "/gate"
   },
   admin: {
     code: "04",
     title: "Admin Sign In",
-    blurb:
-      "Sign in with the admin demo account to review the roster and logs.",
+    blurb: "Sign in with the admin demo account to review the roster and logs.",
     portal: "/admin"
   }
 };
@@ -45,12 +48,28 @@ function isStaffRole(value: string): value is StaffRole {
 
 export default function StaffLoginPage({ params }: { params: { role: string } }) {
   const router = useRouter();
+  const supabase = getSupabaseBrowserClient();
   const role: StaffRole | null = isStaffRole(params.role) ? params.role : null;
   const meta = role ? ROLE_META[role] : null;
 
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [alreadyIn, setAlreadyIn] = useState(false);
+
+  useEffect(() => {
+    if (!role) return;
+    let cancelled = false;
+    (async () => {
+      const su = await getSessionUser(supabase);
+      if (!cancelled && su?.role === role) {
+        setAlreadyIn(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, role]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -60,7 +79,7 @@ export default function StaffLoginPage({ params }: { params: { role: string } })
     try {
       const { error: signInError } = await signInStaff(role, password);
       if (signInError) {
-        setError("Sign in failed. Check the demo password.");
+        setError("Invalid password for this demo account.");
         return;
       }
       router.push(ROLE_META[role].portal);
@@ -78,9 +97,9 @@ export default function StaffLoginPage({ params }: { params: { role: string } })
         <MonoLabel size="sm" tone="muted">
           UNKNOWN ROLE
         </MonoLabel>
-        <h2 className="font-display text-display-md uppercase text-bone mt-4">
+        <h1 className="font-display text-display-md uppercase text-bone mt-4">
           Not a sign-in page
-        </h2>
+        </h1>
         <p className="text-muted mt-3">
           Visit <Link className="text-accent" href="/login">the parent sign-in</Link> or
           pick a role from <Link className="text-accent" href="/">the home page</Link>.
@@ -89,32 +108,35 @@ export default function StaffLoginPage({ params }: { params: { role: string } })
     );
   }
 
+  const errorId = "staff-login-error";
+
   return (
     <>
       <TopNav
         links={[{ label: "Home", href: "/" }]}
-        trailing={
-          <div className="flex items-center gap-2 hairline bg-panel px-3 py-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_8px_#B7EF42] animate-pulse-dot" />
-            <MonoLabel size="xs" tone="bone">
-              DISMISS / V0.1
-            </MonoLabel>
-          </div>
-        }
+        trailing={<VersionTag />}
       />
 
       <main className="pt-24 pb-16 section-shell">
         <div className="max-w-md mx-auto">
-          <span className="eyebrow">
-            <i />
-            {meta.code} / {role.toUpperCase()} SIGN IN
-          </span>
-          <h2 className="font-display text-display-md uppercase text-bone mt-4">
-            {meta.title}
-          </h2>
-          <p className="text-muted mt-3 leading-relaxed">{meta.blurb}</p>
+          <PageHeader
+            eyebrow={`${meta.code} / ${role.toUpperCase()} SIGN IN`}
+            title={meta.title}
+            description={meta.blurb}
+          />
 
-          <form onSubmit={handleSubmit} className="mt-8">
+          {alreadyIn && (
+            <div className="mt-8">
+              <Alert tone="info">
+                <span>You are already signed in.</span>{" "}
+                <Link href={meta.portal} className="text-accent underline underline-offset-4">
+                  Go to your portal
+                </Link>
+              </Alert>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className={`mt-8 ${alreadyIn ? "opacity-50 pointer-events-none" : ""}`}>
             <Panel withTopBar topBar={<span>01 / CREDENTIALS</span>}>
               <div className="p-7 flex flex-col gap-5">
                 <div className="flex flex-col gap-2">
@@ -125,27 +147,28 @@ export default function StaffLoginPage({ params }: { params: { role: string } })
                     {role}@demo.dismissflow
                   </div>
                 </div>
-                <label className="flex flex-col gap-2">
-                  <MonoLabel size="xs" tone="muted">
-                    PASSWORD
-                  </MonoLabel>
-                  <input
+
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="password" className="contents">
+                    <MonoLabel size="xs" tone="muted">
+                      PASSWORD
+                    </MonoLabel>
+                  </label>
+                  <Input
+                    id="password"
                     type="password"
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="demo password"
-                    className="h-12 px-4 bg-ink text-bone border border-line rounded-none font-mono uppercase tracking-widest text-mono-sm outline-none focus:border-accent transition-colors"
+                    invalid={!!error}
+                    aria-describedby={error ? errorId : undefined}
                   />
-                </label>
+                </div>
 
-                {error && (
-                  <p className="text-mono-sm font-mono uppercase tracking-widest text-danger">
-                    {error}
-                  </p>
-                )}
+                {error && <Alert tone="danger" id={errorId}>{error}</Alert>}
 
-                <PrimaryButton type="submit" disabled={loading} aria-label={`Sign in as ${role}`}>
+                <PrimaryButton type="submit" disabled={loading} loading={loading} aria-label={`Sign in as ${role}`}>
                   {loading ? (
                     <>
                       <Icon name="timer" className="h-4 w-4" strokeWidth={2} />

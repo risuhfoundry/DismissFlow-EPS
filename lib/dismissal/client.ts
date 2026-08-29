@@ -14,26 +14,44 @@ export type InvokeError = {
   status?: number;
 };
 
-function parseError(raw: unknown, fallbackStatus?: number): InvokeError {
+// functions.invoke throws FunctionsHttpError whose `context` is the raw Response
+// object. The structured { error: { code, message } } body lives on that Response
+// and must be read asynchronously — it is NOT present as a plain field on the
+// error, so a naive JSON.parse(error.message) drops every machine-readable code.
+// We read context.json() first, then fall back to parsing error.message, then to
+// the HTTP status so the UI always gets the best available signal.
+async function parseError(raw: unknown, fallbackStatus?: number): Promise<InvokeError> {
   const e = raw as {
     code?: string | number;
     message?: string;
     status?: number;
-    context?: { status?: number };
+    context?: Response & { status?: number };
   } | null;
   let code: string | undefined;
+  let message: string | undefined = e?.message;
   try {
-    if (e?.message) {
-      const parsed = JSON.parse(e.message);
-      code = parsed?.code ?? parsed?.error?.code;
+    const ctx = e?.context as unknown as Response | undefined;
+    if (ctx && typeof (ctx as Response).json === "function") {
+      const body = await (ctx as Response).json();
+      const inner = body?.error ?? body;
+      if (inner?.code) code = String(inner.code);
+      if (inner?.message) message = inner.message;
     }
   } catch {
-    /* ignore */
+    /* fall back to message / status below */
+  }
+  if (!code && message) {
+    try {
+      const parsed = JSON.parse(message);
+      code = parsed?.error?.code ?? parsed?.code ?? code;
+    } catch {
+      /* ignore */
+    }
   }
   return {
     code: code ?? (typeof e?.code === "string" ? e.code : undefined),
-    message: e?.message ?? "Request failed",
-    status: e?.context?.status ?? e?.status ?? fallbackStatus
+    message: message ?? "Request failed",
+    status: (e?.context as Response | undefined)?.status ?? e?.status ?? fallbackStatus
   };
 }
 
@@ -44,7 +62,7 @@ export async function createDismissalRequest() {
     token: string;
     expires_at: string;
   }>("create-dismissal-request", { method: "POST", body: {} });
-  if (error) throw parseError(error);
+  if (error) throw await parseError(error);
   return data!;
 }
 
@@ -56,7 +74,7 @@ export async function cancelDismissal(requestId: string) {
     request_id: string;
     student_id: string;
   }>("cancel-dismissal", { method: "POST", body: { request_id: requestId } });
-  if (error) throw parseError(error);
+  if (error) throw await parseError(error);
   return data!;
 }
 
@@ -79,7 +97,7 @@ export async function scanQr(token: string): Promise<ScanResult> {
     { method: "POST", body: { token } }
   );
   if (error) {
-    const e = parseError(error);
+    const e = await parseError(error);
     return { valid: false, code: e.code ?? "INTERNAL_ERROR", message: e.message };
   }
   return data as ScanResult;
@@ -93,7 +111,7 @@ export async function approveDismissal(requestId: string) {
     request_id: string;
     student_id: string;
   }>("approve-dismissal", { method: "POST", body: { request_id: requestId } });
-  if (error) throw parseError(error);
+  if (error) throw await parseError(error);
   return data!;
 }
 
@@ -105,6 +123,6 @@ export async function rejectDismissal(requestId: string) {
     request_id: string;
     student_id: string;
   }>("reject-dismissal", { method: "POST", body: { request_id: requestId } });
-  if (error) throw parseError(error);
+  if (error) throw await parseError(error);
   return data!;
 }

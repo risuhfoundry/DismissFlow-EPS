@@ -36,67 +36,71 @@ export default function TeacherQueuePage() {
   const supabase = getSupabaseBrowserClient();
   const [rows, setRows] = useState<QueueRow[]>([]);
   const [students, setStudents] = useState<Record<string, StudentLite>>({});
-  const [classMeta, setClassMeta] = useState<{ name: string; section: string }>({ name: "Tulip", section: "Nursery" });
+  const [classMeta, setClassMeta] = useState<{ name: string; section: string }>({ name: "", section: "" });
   const [authNote, setAuthNote] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const status$ = useRealtimeStatus(supabase, "dismissal_requests");
 
-  // Load teacher context + initial AWAITING_TEACHER queue.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const sessionUser = await getSessionUser(supabase);
-        if (!sessionUser || sessionUser.role !== "teacher" || !sessionUser.assignedClassId) {
-          setAuthNote("Sign in as a teacher to view the pickup queue.");
-          setLoading(false);
-          return;
-        }
-        const { data: cls } = await supabase
-          .from("classes")
-          .select("class_name, section")
-          .eq("class_id", sessionUser.assignedClassId)
-          .maybeSingle();
-        if (cls) {
-          if (!cancelled) {
-            setClassMeta({
-              name: cls.class_name ?? "Tulip",
-              section: cls.section ?? "Nursery"
-            });
-          }
-        }
-        const { data: queue, error: qErr } = await supabase
-          .from("dismissal_requests")
-          .select("request_id, status, created_at, student_id")
-          .eq("status", "AWAITING_TEACHER")
-          .order("created_at", { ascending: true })
-          .limit(50);
-        if (qErr) throw qErr;
-        if (cancelled) return;
-        setRows((queue ?? []) as QueueRow[]);
-        // Hydrate the students we know about.
-        const studentIds = Array.from(new Set((queue ?? []).map((r) => r.student_id)));
-        if (studentIds.length > 0) {
-          const { data: stus } = await supabase
-            .from("students")
-            .select("student_id, name, admission_no, class_id")
-            .in("student_id", studentIds);
-          const map: Record<string, StudentLite> = {};
-          for (const s of stus ?? []) {
-            map[s.student_id] = { name: s.name, admission_no: s.admission_no };
-          }
-          if (!cancelled) setStudents(map);
-        }
-      } catch {
-        if (!cancelled) setAuthNote("Could not load the queue.");
-      } finally {
-        if (!cancelled) setLoading(false);
+  // Load teacher context + the AWAITING_TEACHER queue for the assigned class.
+  // RLS scopes the query to the teacher's class (dr_teacher_class); the browser
+  // never filters by class. Realtime pushes new scans live, and this SAME loader
+  // backs the manual Refresh control — safe, user-initiated fetching with no
+  // polling timer (Docs/architecture.md §9). Re-used so a manual refresh and a
+  // Realtime-driven update never fight over local state.
+  const loadQueue = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const sessionUser = await getSessionUser(supabase);
+      if (!sessionUser || sessionUser.role !== "teacher" || !sessionUser.assignedClassId) {
+        setAuthNote("Sign in as a teacher to view the pickup queue.");
+        setLoading(false);
+        return;
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
+      const { data: cls } = await supabase
+        .from("classes")
+        .select("class_name, section")
+        .eq("class_id", sessionUser.assignedClassId)
+        .maybeSingle();
+      if (cls) {
+        setClassMeta({
+          name: cls.class_name ?? "",
+          section: cls.section ?? ""
+        });
+      }
+      const { data: queue, error: qErr } = await supabase
+        .from("dismissal_requests")
+        .select("request_id, status, created_at, student_id")
+        .eq("status", "AWAITING_TEACHER")
+        .order("created_at", { ascending: true })
+        .limit(50);
+      if (qErr) throw qErr;
+      setRows((queue ?? []) as QueueRow[]);
+      // Hydrate the students we know about.
+      const studentIds = Array.from(new Set((queue ?? []).map((r) => r.student_id)));
+      if (studentIds.length > 0) {
+        const { data: stus } = await supabase
+          .from("students")
+          .select("student_id, name, admission_no, class_id")
+          .in("student_id", studentIds);
+        const map: Record<string, StudentLite> = {};
+        for (const s of stus ?? []) {
+          map[s.student_id] = { name: s.name, admission_no: s.admission_no };
+        }
+        setStudents(map);
+      }
+      setAuthNote(null);
+    } catch {
+      setAuthNote("Could not load the queue.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [supabase]);
+
+  useEffect(() => {
+    loadQueue();
+  }, [loadQueue]);
 
   // Live updates: re-fetch the relevant student row when a new request comes
   // in for the assigned class. RLS already limits the stream to the class.
@@ -143,7 +147,7 @@ export default function TeacherQueuePage() {
           03 / TEACHER QUEUE
         </span>
         <h2 className="font-display text-display-md uppercase text-bone mt-4">
-          {classMeta.name}
+          {classMeta.name || "Your Class"}
         </h2>
         <p className="text-muted mt-3 max-w-2xl">
           Live pickup requests for your assigned class. The list updates in
@@ -176,7 +180,23 @@ export default function TeacherQueuePage() {
               topBar={
                 <>
                   <span>01 / PENDING PICKUPS</span>
-                  <span className="text-success">● LIVE</span>
+                  <span className="flex items-center gap-3">
+                    <span className="text-success">● LIVE</span>
+                    <button
+                      type="button"
+                      onClick={() => loadQueue()}
+                      disabled={refreshing}
+                      className="h-7 px-3 inline-flex items-center gap-2 hairline text-muted hover:text-bone font-mono uppercase tracking-widest text-mono-xs transition-colors disabled:opacity-50"
+                      aria-label="Refresh pickup queue"
+                    >
+                      <Icon
+                        name={refreshing ? "timer" : "arrow.right"}
+                        className="h-3.5 w-3.5 -rotate-180"
+                        strokeWidth={2}
+                      />
+                      {refreshing ? "Refreshing" : "Refresh"}
+                    </button>
+                  </span>
                 </>
               }
             >

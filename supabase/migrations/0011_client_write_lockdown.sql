@@ -1,0 +1,50 @@
+-- =============================================================================
+-- DismissFlow EPS — Phase 14: remove unnecessary client-write RLS policies.
+-- =============================================================================
+-- Source of truth: Docs/architecture.md §5.1, §9.2, §11, §12.1; Docs/PRD.md §21.
+--
+-- WHY:
+--   The browser must NEVER be the authority for dismissal state transitions or
+--   for role/identity. Every write to dismissal_requests and users must flow
+--   through the trusted Edge Functions (service-role key) which call the atomic
+--   SECURITY DEFINER RPCs and enforce the full contract (role checks, class
+--   scope, status guards, single-use, expiry, immutable audit).
+--
+--   Phase 14 live testing proved two client-authority bypasses that the policies
+--   below silently permitted (the anon-key browser client could write directly):
+--
+--     A) dr_parent_own_update on dismissal_requests allowed a parent to
+--        `UPDATE ... SET status = 'DISMISSED'` on their own request — bypassing
+--        the gate scan, teacher approval, AND the immutable dismissal_events
+--        audit (no audit row was created). WITH CHECK only constrained
+--        student_id, not the workflow columns.
+--
+--     B) users_self_update on users allowed any signed-in user to
+--        `UPDATE ... SET role = 'admin'`, escalating their own authorization
+--        (WITH CHECK only constrained user_id, not the role/link columns).
+--
+--   A code audit confirmed NO client code ever writes these tables directly:
+--   create/cancel go through create-dismissal-request / cancel-dismissal Edge
+--   Functions, and the profile/portals are read-only. So these policies were
+--   both unnecessary and dangerous.
+--
+-- WHAT THIS MIGRATION DOES (restriction, not a weakening):
+--   - Drops dr_parent_own_insert and dr_parent_own_update on dismissal_requests.
+--     After this, a parent client has SELECT only (dr_parent_own_select); the
+--     request lifecycle is created/transitioned exclusively by the service-role
+--     RPCs (create-dismissal-request, scan-qr, approve/reject-dismissal,
+--     cancel-dismissal). The one-active-request partial unique index still
+--     guards concurrency server-side.
+--   - Drops users_self_update on users. After this, a non-admin client has
+--     SELECT only (users_self_read); role / linked_student_id / assigned_class_id
+--     can only be changed by the admin role (users_admin_all, retained).
+--
+-- RETAINED (unchanged): all SELECT policies (parent/teacher/gate/admin scopes),
+--   the admin ALL policies for legitimate management, and the read-only
+--   dismissal_events policies. No USING(true), no RLS disable, no service-role
+--   exposure, no data loss.
+-- =============================================================================
+
+drop policy if exists dr_parent_own_insert on public.dismissal_requests;
+drop policy if exists dr_parent_own_update on public.dismissal_requests;
+drop policy if exists users_self_update on public.users;

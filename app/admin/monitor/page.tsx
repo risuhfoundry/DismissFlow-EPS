@@ -4,11 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Icon } from "@/components/ui/Icon";
-import { MonoLabel } from "@/components/ui/MonoLabel";
 import { Panel } from "@/components/ui/Panel";
+import { Stat } from "@/components/ui/Stat";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { StatusIndicator } from "@/components/ui/StatusIndicator";
 import { TopNav } from "@/components/ui/TopNav";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { AccessNote } from "@/components/ui/AccessNote";
+import { LoadingState, EmptyState } from "@/components/ui/StateBlock";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRealtimeStatus, useTableChanges } from "@/lib/realtime/subs";
 import type { DismissalStatus } from "@/lib/dismissal/state";
@@ -154,26 +157,15 @@ export default function AdminMonitorPage() {
       <TopNav links={NAV_LINKS} trailing={<StatusIndicator status={status$} />} />
 
       <main className="pt-24 pb-16 section-shell">
-        <span className="eyebrow">
-          <i />
-          04 / DISMISSAL MONITOR
-        </span>
-        <h2 className="font-display text-display-md uppercase text-bone mt-4">
-          Live Operations
-        </h2>
-        <p className="text-muted mt-3 max-w-2xl">
-          All dismissal requests, updated in real time. The Admin portal only
-          observes state — every transition is performed by the trusted Edge
-          Functions. No QR token or guardian PII is shown here.
-        </p>
+        <PageHeader
+          eyebrow="04 / DISMISSAL MONITOR"
+          title="Live Operations"
+          description="All dismissal requests, updated in real time. The Admin portal only observes state — every transition is performed by the trusted Edge Functions. No QR token or guardian PII is shown here."
+        />
 
         {authNote && (
           <div className="mt-8">
-            <Panel withTopBar topBar={<span>00 / ACCESS</span>}>
-              <div className="p-7 font-mono text-mono-sm uppercase tracking-widest text-muted">
-                {authNote}
-              </div>
-            </Panel>
+            <AccessNote message={authNote} signInHref="/login/admin" signInLabel="Sign In" />
           </div>
         )}
 
@@ -183,23 +175,13 @@ export default function AdminMonitorPage() {
               {(
                 ["REQUESTED", "AWAITING_TEACHER", "DISMISSED", "REJECTED", "CANCELLED", "EXPIRED"] as DismissalStatus[]
               ).map((s) => (
-                <div key={s} className="bg-panel p-5">
-                  <MonoLabel size="xs" tone="muted">
-                    {s.replace("_", " ")}
-                  </MonoLabel>
-                  <p className="font-display text-3xl uppercase text-bone mt-1 leading-none">
-                    {tally[s] ?? 0}
-                  </p>
-                </div>
+                <Stat
+                  key={s}
+                  label={s.replace(/_/g, " ")}
+                  value={tally[s] ?? 0}
+                />
               ))}
-              <div className="bg-panel p-5">
-                <MonoLabel size="xs" tone="muted">
-                  TOTAL
-                </MonoLabel>
-                <p className="font-display text-3xl uppercase text-bone mt-1 leading-none">
-                  {rows.length}
-                </p>
-              </div>
+              <Stat label="TOTAL" value={rows.length} />
             </div>
 
             <Panel
@@ -217,11 +199,9 @@ export default function AdminMonitorPage() {
               }
             >
               {loading ? (
-                <div className="p-10 flex items-center justify-center">
-                  <Icon name="timer" className="h-5 w-5 text-muted" />
-                </div>
+                <LoadingState message="Loading monitor…" />
               ) : rows.length === 0 ? (
-                <div className="p-7 text-muted">No dismissal requests yet.</div>
+                <EmptyState message="No dismissal requests yet." icon="history" />
               ) : (
                 <ul className="divide-y divide-line">
                   {rows.map((r, idx) => {

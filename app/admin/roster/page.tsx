@@ -6,6 +6,11 @@ import { Icon } from "@/components/ui/Icon";
 import { MonoLabel } from "@/components/ui/MonoLabel";
 import { Panel } from "@/components/ui/Panel";
 import { TopNav } from "@/components/ui/TopNav";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { AccessNote } from "@/components/ui/AccessNote";
+import { LoadingState, EmptyState } from "@/components/ui/StateBlock";
+import { Table, Th, Td } from "@/components/ui/Table";
+import { Input } from "@/components/ui/Input";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const NAV_LINKS = [
@@ -104,39 +109,31 @@ export default function AdminRosterPage() {
       />
 
       <main className="pt-24 pb-16 section-shell">
-        <span className="eyebrow">
-          <i />
-          04 / ROSTER
-        </span>
-        <h2 className="font-display text-display-md uppercase text-bone mt-4">
-          {students.length} Students
-        </h2>
-        <p className="text-muted mt-3 max-w-2xl">
-          The full seeded roster. Admission numbers retain their leading
-          zeroes (e.g. <span className="font-mono">040</span>,{" "}
-          <span className="font-mono">041</span>). Guardian linkage is shown as
-          a flag only — no guardian PII is rendered here.
-        </p>
+        <PageHeader
+          eyebrow="04 / ROSTER"
+          title={`${students.length} Students`}
+          description="The full seeded roster. Admission numbers retain their leading zeroes (e.g. 040, 041). Guardian linkage is shown as a flag only — no guardian PII is rendered here."
+        />
 
         {authNote && (
           <div className="mt-8">
-            <Panel withTopBar topBar={<span>00 / ACCESS</span>}>
-              <div className="p-7 font-mono text-mono-sm uppercase tracking-widest text-muted">
-                {authNote}
-              </div>
-            </Panel>
+            <AccessNote message={authNote} signInHref="/login/admin" signInLabel="Sign In" />
           </div>
         )}
 
         {!authNote && (
           <div className="mt-10">
             <div className="mb-6">
-              <input
+              <label htmlFor="roster-search" className="sr-only">
+                Search students
+              </label>
+              <Input
+                id="roster-search"
                 type="text"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="search by name or admission number"
-                className="h-12 w-full sm:w-96 px-4 bg-ink text-bone border border-line rounded-none font-mono text-mono-sm outline-none focus:border-accent transition-colors"
+                className="w-full sm:w-96"
               />
             </div>
 
@@ -145,18 +142,18 @@ export default function AdminRosterPage() {
               topBar={
                 <>
                   <span>01 / STUDENTS</span>
-                  <span className="text-muted">{filtered.length} / {students.length}</span>
+                  <span className="text-muted">
+                    {filtered.length} / {students.length}
+                  </span>
                 </>
               }
             >
               {loading ? (
-                <div className="p-10 flex items-center justify-center">
-                  <Icon name="timer" className="h-5 w-5 text-muted" />
-                </div>
+                <LoadingState message="Loading roster…" />
               ) : filtered.length === 0 ? (
-                <div className="p-7 text-muted">No matches.</div>
+                <EmptyState message="No matches." icon="history" />
               ) : (
-                <table className="w-full text-left">
+                <Table>
                   <thead>
                     <tr className="border-b border-line">
                       <Th>ADM</Th>
@@ -196,26 +193,12 @@ export default function AdminRosterPage() {
                       );
                     })}
                   </tbody>
-                </table>
+                </Table>
               )}
             </Panel>
           </div>
         )}
       </main>
     </>
-  );
-}
-
-function Th({ children }: { children: React.ReactNode }) {
-  return (
-    <th className="px-5 py-3 font-mono uppercase tracking-widest text-mono-xs text-muted">
-      {children}
-    </th>
-  );
-}
-
-function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return (
-    <td className={`px-5 py-4 ${className}`}>{children}</td>
   );
 }

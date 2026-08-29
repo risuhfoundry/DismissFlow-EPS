@@ -6,6 +6,10 @@ import { Icon } from "@/components/ui/Icon";
 import { MonoLabel } from "@/components/ui/MonoLabel";
 import { Panel } from "@/components/ui/Panel";
 import { TopNav } from "@/components/ui/TopNav";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { AccessNote } from "@/components/ui/AccessNote";
+import { LoadingState, EmptyState } from "@/components/ui/StateBlock";
+import { Table, Th, Td } from "@/components/ui/Table";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const NAV_LINKS = [
@@ -103,26 +107,15 @@ export default function AdminUsersPage() {
       />
 
       <main className="pt-24 pb-16 section-shell">
-        <span className="eyebrow">
-          <i />
-          04 / USERS
-        </span>
-        <h2 className="font-display text-display-md uppercase text-bone mt-4">
-          {users.length} Application Users
-        </h2>
-        <p className="text-muted mt-3 max-w-2xl">
-          Role and link visibility for every application account. This is a
-          read-only management view — no credentials, tokens, or guardian PII
-          are exposed. Authorization remains enforced by the database.
-        </p>
+        <PageHeader
+          eyebrow="04 / USERS"
+          title={`${users.length} Application Users`}
+          description="Role and link visibility for every application account. This is a read-only management view — no credentials, tokens, or guardian PII are exposed. Authorization remains enforced by the database."
+        />
 
         {authNote && (
           <div className="mt-8">
-            <Panel withTopBar topBar={<span>00 / ACCESS</span>}>
-              <div className="p-7 font-mono text-mono-sm uppercase tracking-widest text-muted">
-                {authNote}
-              </div>
-            </Panel>
+            <AccessNote message={authNote} signInHref="/login/admin" signInLabel="Sign In" />
           </div>
         )}
 
@@ -138,13 +131,11 @@ export default function AdminUsersPage() {
               }
             >
               {loading ? (
-                <div className="p-10 flex items-center justify-center">
-                  <Icon name="timer" className="h-5 w-5 text-muted" />
-                </div>
+                <LoadingState message="Loading users…" />
               ) : users.length === 0 ? (
-                <div className="p-7 text-muted">No users found.</div>
+                <EmptyState message="No users found." icon="user" />
               ) : (
-                <table className="w-full text-left">
+                <Table>
                   <thead>
                     <tr className="border-b border-line">
                       <Th>ROLE</Th>
@@ -196,26 +187,12 @@ export default function AdminUsersPage() {
                       );
                     })}
                   </tbody>
-                </table>
+                </Table>
               )}
             </Panel>
           </div>
         )}
       </main>
     </>
-  );
-}
-
-function Th({ children }: { children: React.ReactNode }) {
-  return (
-    <th className="px-5 py-3 font-mono uppercase tracking-widest text-mono-xs text-muted">
-      {children}
-    </th>
-  );
-}
-
-function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return (
-    <td className={`px-5 py-4 ${className}`}>{children}</td>
   );
 }

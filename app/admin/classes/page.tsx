@@ -4,8 +4,13 @@ import { useEffect, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { MonoLabel } from "@/components/ui/MonoLabel";
 import { Panel } from "@/components/ui/Panel";
+import { Stat } from "@/components/ui/Stat";
+import { Field } from "@/components/ui/Field";
 import { StatusIndicator } from "@/components/ui/StatusIndicator";
 import { TopNav } from "@/components/ui/TopNav";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { AccessNote } from "@/components/ui/AccessNote";
+import { LoadingState, EmptyState } from "@/components/ui/StateBlock";
 import { useRealtimeStatus } from "@/lib/realtime/subs";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -91,89 +96,75 @@ export default function AdminClassesPage() {
       <TopNav links={NAV_LINKS} trailing={<StatusIndicator status={status$} />} />
 
       <main className="pt-24 pb-16 section-shell">
-        <span className="eyebrow">
-          <i />
-          04 / CLASSES
-        </span>
-        <h2 className="font-display text-display-md uppercase text-bone mt-4">
-          {classes.length} {classes.length === 1 ? "Class" : "Classes"}
-        </h2>
-        <p className="text-muted mt-3 max-w-2xl">
-          Classes are read from the database — nothing is hardcoded. Each card
-          shows the assigned teacher and the live student count.
-        </p>
+        <PageHeader
+          eyebrow="04 / CLASSES"
+          title={classes.length ? `${classes.length} Classes` : "Classes"}
+          description="Classes are read from the database — nothing is hardcoded. Each card shows the assigned teacher and the live student count."
+        />
 
         {authNote && (
           <div className="mt-8">
-            <Panel withTopBar topBar={<span>00 / ACCESS</span>}>
-              <div className="p-7 font-mono text-mono-sm uppercase tracking-widest text-muted">
-                {authNote}
-              </div>
-            </Panel>
+            <AccessNote message={authNote} signInHref="/login/admin" signInLabel="Sign In" />
           </div>
         )}
 
-        {!authNote && (
+        {!authNote && loading && (
+          <div className="mt-10">
+            <LoadingState message="Loading classes…" />
+          </div>
+        )}
+
+        {!authNote && !loading && classes.length === 0 && (
+          <div className="mt-10">
+            <EmptyState message="No classes found." icon="user" />
+          </div>
+        )}
+
+        {!authNote && !loading && classes.length > 0 && (
           <div className="mt-10 grid gap-6">
-            {loading ? (
-              <Panel>
-                <div className="p-10 flex items-center justify-center">
-                  <Icon name="timer" className="h-5 w-5 text-muted" />
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-px bg-line">
+              <Stat label="CLASSES" value={classes.length} />
+              <Stat
+                label="TOTAL STUDENTS"
+                value={Object.values(studentCounts).reduce((a, b) => a + b, 0)}
+              />
+            </div>
+            {classes.map((c) => (
+              <Panel
+                key={c.class_id}
+                withTopBar
+                topBar={
+                  <>
+                    <span>{c.class_name.toUpperCase()}</span>
+                    <span className="text-muted">
+                      {c.section ? c.section.toUpperCase() : "NO SECTION"}
+                    </span>
+                  </>
+                }
+              >
+                <div className="p-7 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <Field label="ASSIGNED TEACHER">
+                    {c.teacher_id ? (
+                      <span className="font-mono uppercase tracking-widest text-bone">
+                        {teacherLogin[c.teacher_id] ?? "—"}
+                      </span>
+                    ) : (
+                      <MonoLabel size="sm" tone="muted">
+                        UNASSIGNED
+                      </MonoLabel>
+                    )}
+                  </Field>
+                  <Field label="STUDENTS">
+                    <span className="font-display text-4xl uppercase text-bone leading-none">
+                      {studentCounts[c.class_id] ?? 0}
+                    </span>
+                  </Field>
                 </div>
               </Panel>
-            ) : classes.length === 0 ? (
-              <Panel>
-                <div className="p-7 text-muted">No classes found.</div>
-              </Panel>
-            ) : (
-              classes.map((c) => (
-                <Panel
-                  key={c.class_id}
-                  withTopBar
-                  topBar={
-                    <>
-                      <span>{c.class_name.toUpperCase()}</span>
-                      <span className="text-muted">
-                        {c.section ? c.section.toUpperCase() : "NO SECTION"}
-                      </span>
-                    </>
-                  }
-                >
-                  <div className="p-7 grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <Field label="ASSIGNED TEACHER">
-                      {c.teacher_id ? (
-                        <span className="font-mono uppercase tracking-widest text-bone">
-                          {teacherLogin[c.teacher_id] ?? "—"}
-                        </span>
-                      ) : (
-                        <MonoLabel size="sm" tone="muted">
-                          UNASSIGNED
-                        </MonoLabel>
-                      )}
-                    </Field>
-                    <Field label="STUDENTS">
-                      <span className="font-display text-3xl uppercase text-bone leading-none">
-                        {studentCounts[c.class_id] ?? 0}
-                      </span>
-                    </Field>
-                  </div>
-                </Panel>
-              ))
-            )}
+            ))}
           </div>
         )}
       </main>
     </>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <MonoLabel size="xs" tone="muted">
-        {label}
-      </MonoLabel>
-      <div>{children}</div>
-    </div>
   );
 }

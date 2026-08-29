@@ -6,9 +6,13 @@ import { motion } from "framer-motion";
 import { Icon } from "@/components/ui/Icon";
 import { MonoLabel } from "@/components/ui/MonoLabel";
 import { Panel } from "@/components/ui/Panel";
+import { Stat } from "@/components/ui/Stat";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { StatusIndicator } from "@/components/ui/StatusIndicator";
 import { TopNav } from "@/components/ui/TopNav";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { AccessNote } from "@/components/ui/AccessNote";
+import { LoadingState, EmptyState } from "@/components/ui/StateBlock";
 import { getSessionUser } from "@/lib/auth/session";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRealtimeStatus, useTableChanges } from "@/lib/realtime/subs";
@@ -207,36 +211,21 @@ export default function AdminOverviewPage() {
       />
 
       <main className="pt-24 pb-16 section-shell">
-        <span className="eyebrow">
-          <i />
-          04 / ADMIN OVERVIEW
-        </span>
-        <h2 className="font-display text-display-md uppercase text-bone mt-4">
-          Operations
-        </h2>
-        <p className="text-muted mt-3 max-w-2xl">
-          Live operational picture. Every figure below is computed from the
-          database by the admin role's Row-Level Security scope — nothing is
-          hardcoded. Dismissal state itself is owned by the trusted Edge
-          Functions; this portal only observes it.
-        </p>
+        <PageHeader
+          eyebrow="04 / ADMIN OVERVIEW"
+          title="Operations"
+          description="Live operational picture. Every figure below is computed from the database by the admin role's Row-Level Security scope — nothing is hardcoded. Dismissal state itself is owned by the trusted Edge Functions; this portal only observes it."
+        />
 
         {authNote && (
           <div className="mt-8">
-            <Panel withTopBar topBar={<span>00 / ACCESS</span>}>
-              <div className="p-7 flex flex-col gap-5">
-                <p className="font-mono text-mono-sm uppercase tracking-widest text-muted">
-                  {authNote}
-                </p>
-                <Link
-                  href="/login/admin"
-                  className="h-12 px-5 inline-flex items-center gap-3 bg-accent text-white font-mono uppercase tracking-widest text-mono-sm font-semibold shadow-accent-glow w-fit"
-                >
-                  <Icon name="arrow.right" className="h-4 w-4" strokeWidth={2} />
-                  Sign In
-                </Link>
-              </div>
-            </Panel>
+            <AccessNote message={authNote} signInHref="/login/admin" signInLabel="Sign In" />
+          </div>
+        )}
+
+        {!authNote && loading && (
+          <div className="mt-10">
+            <LoadingState message="Loading operations…" />
           </div>
         )}
 
@@ -261,6 +250,19 @@ export default function AdminOverviewPage() {
               <Stat label="REJECTED / CANCELLED" value={stats.rejectedCancelled} />
             </Section>
 
+            {/* Status distribution — derived from the rows we already hold. */}
+            <Section title="STATUS DISTRIBUTION">
+              {(["REQUESTED", "AWAITING_TEACHER", "DISMISSED", "REJECTED", "CANCELLED", "EXPIRED"] as DismissalStatus[]).map(
+                (s) => (
+                  <Stat
+                    key={s}
+                    label={s.replace("_", " ")}
+                    value={recent.filter((r) => r.status === s).length}
+                  />
+                )
+              )}
+            </Section>
+
             {/* Recent activity */}
             <Panel
               withTopBar
@@ -277,7 +279,7 @@ export default function AdminOverviewPage() {
               }
             >
               {recent.length === 0 ? (
-                <div className="p-7 text-muted">No dismissal requests yet.</div>
+                <EmptyState message="No dismissal requests yet." icon="history" />
               ) : (
                 <ul className="divide-y divide-line">
                   {recent.map((r) => {
@@ -296,7 +298,7 @@ export default function AdminOverviewPage() {
                             {s?.class_name ? ` · ${s.class_name.toUpperCase()}` : ""}
                           </p>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4 shrink-0">
                           <span className="font-mono text-mono-xs uppercase tracking-widest text-muted">
                             {fmt(r.created_at)}
                           </span>
@@ -329,30 +331,5 @@ function Section({ title, children }: { title: string; children: React.ReactNode
         {children}
       </div>
     </motion.div>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  accent
-}: {
-  label: string;
-  value: number;
-  accent?: boolean;
-}) {
-  return (
-    <div className="bg-panel p-6">
-      <MonoLabel size="sm" tone="muted">
-        {label}
-      </MonoLabel>
-      <p
-        className={`font-display text-display-md uppercase mt-2 leading-none ${
-          accent ? "text-accent" : "text-bone"
-        }`}
-      >
-        {value}
-      </p>
-    </div>
   );
 }

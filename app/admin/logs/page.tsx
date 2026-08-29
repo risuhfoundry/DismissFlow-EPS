@@ -8,6 +8,9 @@ import { Panel } from "@/components/ui/Panel";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { StatusIndicator } from "@/components/ui/StatusIndicator";
 import { TopNav } from "@/components/ui/TopNav";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { AccessNote } from "@/components/ui/AccessNote";
+import { LoadingState, EmptyState } from "@/components/ui/StateBlock";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRealtimeStatus } from "@/lib/realtime/subs";
 import type { DismissalStatus } from "@/lib/dismissal/state";
@@ -112,26 +115,15 @@ export default function AdminLogsPage() {
       />
 
       <main className="pt-24 pb-16 section-shell">
-        <span className="eyebrow">
-          <i />
-          04 / AUDIT LOG
-        </span>
-        <h2 className="font-display text-display-md uppercase text-bone mt-4">
-          Dismissal Events
-        </h2>
-        <p className="text-muted mt-3 max-w-2xl">
-          Immutable audit trail. Rows are written only by the trusted Edge
-          Functions via the service role; no UPDATE/DELETE policy exists on
-          this table.
-        </p>
+        <PageHeader
+          eyebrow="04 / AUDIT LOG"
+          title="Dismissal Events"
+          description="Immutable audit trail. Rows are written only by the trusted Edge Functions via the service role; no UPDATE/DELETE policy exists on this table."
+        />
 
         {authNote && (
           <div className="mt-8">
-            <Panel withTopBar topBar={<span>00 / ACCESS</span>}>
-              <div className="p-7 font-mono text-mono-sm uppercase tracking-widest text-muted">
-                {authNote}
-              </div>
-            </Panel>
+            <AccessNote message={authNote} signInHref="/login/admin" signInLabel="Sign In" />
           </div>
         )}
 
@@ -147,11 +139,9 @@ export default function AdminLogsPage() {
               }
             >
               {loading ? (
-                <div className="p-10 flex items-center justify-center">
-                  <Icon name="timer" className="h-5 w-5 text-muted" />
-                </div>
+                <LoadingState message="Loading events…" />
               ) : rows.length === 0 ? (
-                <div className="p-7 text-muted">No events recorded yet.</div>
+                <EmptyState message="No events recorded yet." icon="history" />
               ) : (
                 <ul className="divide-y divide-line">
                   {rows.map((r, idx) => {

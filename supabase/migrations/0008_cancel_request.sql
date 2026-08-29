@@ -109,10 +109,12 @@ begin
     and dr.status = 'REQUESTED';
 
   -- Invalidate any associated qr_tokens so a stale QR can never be honoured.
+  -- NOTE: qualify request_id/status — the function's RETURN TABLE declares OUT
+  -- columns of the same names, so unqualified refs here raise 42702 (ambiguous).
   update public.qr_tokens
   set status = 'EXPIRED'
-  where request_id = p_request_id
-    and status = 'VALID';
+  where qr_tokens.request_id = p_request_id
+    and qr_tokens.status = 'VALID';
 
   -- Append/complete the immutable audit event for this request.
   update public.dismissal_events de

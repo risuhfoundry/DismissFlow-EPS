@@ -36,8 +36,8 @@ export function DataTable<T>({
 
   if (loading) {
     return (
-      <div className="w-full overflow-x-auto" style={minWidth ? { minWidth } : undefined}>
-        <table className="w-full border-collapse text-left text-sm">
+      <div className="w-full overflow-x-auto">
+        <table className="w-full border-collapse text-left text-sm" style={minWidth ? { minWidth } : undefined}>
           <thead>
             <tr className="border-b border-border">
               {columns.map((c) => (
@@ -68,8 +68,8 @@ export function DataTable<T>({
   }
 
   return (
-    <div className="w-full overflow-x-auto" style={minWidth ? { minWidth } : undefined}>
-      <table className={clsx("w-full border-collapse text-left text-sm", className)}>
+    <div className="w-full overflow-x-auto">
+      <table className={clsx("w-full border-collapse text-left text-sm", className)} style={minWidth ? { minWidth } : undefined}>
         <thead>
           <tr className="border-b border-border">
             {columns.map((c) => (

@@ -1,0 +1,64 @@
+import clsx from "clsx";
+import type { ReactNode } from "react";
+
+export type StatusTone =
+  | "neutral"
+  | "info"
+  | "success"
+  | "warning"
+  | "danger"
+  | "primary";
+
+const TONES: Record<StatusTone, string> = {
+  neutral: "bg-secondary text-secondary-foreground",
+  info: "bg-info-soft text-info",
+  success: "bg-success-soft text-success",
+  warning: "bg-warning-soft text-warning",
+  danger: "bg-destructive-soft text-destructive",
+  primary: "bg-primary-soft text-primary"
+};
+
+const DOT: Record<StatusTone, string> = {
+  neutral: "bg-muted-foreground",
+  info: "bg-info",
+  success: "bg-success",
+  warning: "bg-warning",
+  danger: "bg-destructive",
+  primary: "bg-primary"
+};
+
+/**
+ * StatusBadge — for workflow / record states (pending, approved, waiting…).
+ * `pulse` adds a gentle live indicator for active states.
+ */
+export function StatusBadge({
+  tone = "neutral",
+  children,
+  pulse,
+  className
+}: {
+  tone?: StatusTone;
+  children: ReactNode;
+  pulse?: boolean;
+  className?: string;
+}) {
+  return (
+    <span
+      className={clsx(
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium",
+        TONES[tone],
+        className
+      )}
+    >
+      <span
+        className={clsx(
+          "h-1.5 w-1.5 rounded-full",
+          DOT[tone],
+          pulse && "animate-pulse-soft"
+        )}
+        aria-hidden="true"
+      />
+      {children}
+    </span>
+  );
+}

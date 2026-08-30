@@ -1,31 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Barlow_Condensed } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
-import { SmoothScroll } from "@/components/effects/SmoothScroll";
-import { CursorGlow } from "@/components/effects/CursorGlow";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-sans",
-  display: "swap"
-});
-
-const display = Barlow_Condensed({
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
-  variable: "--font-display",
-  display: "swap"
-});
 
 export const metadata: Metadata = {
-  title: "DismissFlow",
-  description: "Web-based school e-dismissal & digital pickup system."
+  title: {
+    default: "DismissFlow",
+    template: "%s · DismissFlow"
+  },
+  description: "Safe, calm, and reliable school dismissal management."
 };
 
 export const viewport: Viewport = {
-  themeColor: "#080706",
-  colorScheme: "dark"
+  themeColor: "#F6F8FB",
+  colorScheme: "light",
+  width: "device-width",
+  initialScale: 1
 };
 
 export default function RootLayout({
@@ -34,14 +24,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark noise-overlay">
-      <body
-        className={`${inter.variable} ${display.variable} ${GeistMono.variable} font-sans antialiased min-h-screen bg-ink text-bone`}
-      >
-        <SmoothScroll />
-        <CursorGlow />
-        {children}
-      </body>
+    <html
+      lang="en"
+      className={`${GeistSans.variable} ${GeistMono.variable}`}
+      suppressHydrationWarning
+    >
+      <body>{children}</body>
     </html>
   );
 }

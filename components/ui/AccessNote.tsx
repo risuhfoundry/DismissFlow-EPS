@@ -3,8 +3,7 @@ import { Icon } from "./Icon";
 import { Panel } from "./Panel";
 import { PrimaryButton } from "./PrimaryButton";
 
-// Standard "you need to sign in" surface shown by role portals when there is no
-// authenticated session. Centralises the previously-duplicated access panel.
+/** Standard "you need to sign in" surface shown when there is no session. */
 export function AccessNote({
   message,
   signInHref,
@@ -15,15 +14,12 @@ export function AccessNote({
   signInLabel?: string;
 }) {
   return (
-    <Panel withTopBar topBar={<span>00 / ACCESS</span>}>
-      <div className="p-7 flex flex-col gap-5">
-        <p className="font-mono text-mono-sm uppercase tracking-widest text-muted">
-          {message}
-        </p>
+    <Panel withTopBar topBar={<span>Access</span>}>
+      <div className="flex flex-col gap-5 p-6 sm:p-7">
+        <p className="text-sm text-muted-foreground">{message}</p>
         {signInHref && (
           <Link href={signInHref} className="w-fit">
-            <PrimaryButton>
-              <Icon name="arrow.right" className="h-4 w-4" strokeWidth={2} />
+            <PrimaryButton rightIcon={<Icon name="arrow.right" className="h-4 w-4" />}>
               {signInLabel}
             </PrimaryButton>
           </Link>

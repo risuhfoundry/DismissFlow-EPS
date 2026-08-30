@@ -8,6 +8,18 @@ import { NextResponse, type NextRequest } from "next/server";
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
 export async function middleware(request: NextRequest) {
+  // Phase 18.1: the /foundation route is a development/component showcase with
+  // synthetic UI demo data. It is dev-only — block it in production at the
+  // server/edge layer (before any rendering or bundle is served) with a safe
+  // 404 so production users never receive showcase content.
+  if (
+    (request.nextUrl.pathname === "/foundation" ||
+      request.nextUrl.pathname.startsWith("/foundation/")) &&
+    process.env.NODE_ENV === "production"
+  ) {
+    return new NextResponse("Not Found", { status: 404 });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

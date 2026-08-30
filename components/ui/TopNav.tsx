@@ -6,12 +6,13 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { Icon } from "./Icon";
 
-// Fixed top nav — Revora 66px bar, mono caps, hairline border, glass on scroll.
-// Brand mark + role links + trailing status on the right. On <md the role
-// links collapse into a hamburger menu so portal sub-routes stay reachable on
-// phones (previously they were hidden entirely, stranding mobile users).
+/**
+ * Fixed top nav (light theme). Brand + role links + trailing status/actions.
+ * On <md the links collapse into a menu so sub-routes stay reachable on phones.
+ * Kept for existing role pages; the new authenticated shell uses TopHeader.
+ */
 export function TopNav({
-  brand = "DISMISSFLOW",
+  brand = "DismissFlow",
   links,
   trailing
 }: {
@@ -22,27 +23,19 @@ export function TopNav({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  // Close the mobile menu whenever the route changes.
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
   return (
-    <header
-      className={clsx(
-        "fixed top-0 inset-x-0 z-40",
-        "h-16 flex items-center justify-between px-5",
-        "bg-ink/80 backdrop-blur-md",
-        "border-b border-line"
-      )}
-    >
+    <header className="sticky top-0 inset-x-0 z-40 flex h-16 items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur sm:px-6">
       <div className="flex items-center gap-3">
-        <Link href="/" className="flex items-center gap-3" aria-label="DismissFlow home">
-          <span className="font-display text-xl tracking-wider text-bone uppercase">
+        <Link href="/" className="flex items-center gap-2" aria-label="DismissFlow home">
+          <span className="text-title font-semibold tracking-tight text-foreground">
             {brand}
           </span>
         </Link>
-        <nav className="hidden md:flex items-center gap-7 ml-4">
+        <nav className="ml-2 hidden items-center gap-1 md:flex">
           {links.map((l) => {
             const active = pathname === l.href;
             return (
@@ -51,8 +44,10 @@ export function TopNav({
                 href={l.href}
                 aria-current={active ? "page" : undefined}
                 className={clsx(
-                  "font-mono uppercase tracking-widest text-mono-sm transition-colors outline-none focus-visible:text-bone focus-visible:ring-2 focus-visible:ring-accent/70 rounded-sm",
-                  active ? "text-bone" : "text-muted hover:text-bone"
+                  "rounded-md px-3 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                  active
+                    ? "bg-primary-soft text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
                 {l.label}
@@ -70,16 +65,16 @@ export function TopNav({
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             aria-label={open ? "Close menu" : "Open menu"}
-            className="md:hidden h-10 w-10 inline-flex items-center justify-center hairline text-bone outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md text-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring md:hidden"
           >
-            <Icon name={open ? "close" : "menu"} className="h-5 w-5" strokeWidth={1.6} />
+            <Icon name={open ? "close" : "menu"} className="h-5 w-5" />
           </button>
         )}
       </div>
 
       {open && (
-        <div className="md:hidden absolute top-16 inset-x-0 border-b border-line bg-ink/95 backdrop-blur-md">
-          <nav className="flex flex-col p-3 gap-1">
+        <div className="absolute top-16 inset-x-0 border-b border-border bg-background md:hidden">
+          <nav className="flex flex-col p-2">
             {links.map((l) => {
               const active = pathname === l.href;
               return (
@@ -88,17 +83,17 @@ export function TopNav({
                   href={l.href}
                   aria-current={active ? "page" : undefined}
                   className={clsx(
-                    "px-4 py-3 font-mono uppercase tracking-widest text-mono-sm transition-colors",
+                    "rounded-md px-4 py-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     active
-                      ? "text-bone bg-panel-alt"
-                      : "text-muted hover:text-bone hover:bg-panel-alt"
+                      ? "bg-primary-soft text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                 >
                   {l.label}
                 </Link>
               );
             })}
-            {trailing && <div className="px-4 py-3 border-t border-line">{trailing}</div>}
+            {trailing && <div className="px-2 py-2">{trailing}</div>}
           </nav>
         </div>
       )}

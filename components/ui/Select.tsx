@@ -1,29 +1,46 @@
 import { forwardRef } from "react";
-import { clsx } from "clsx";
+import clsx from "clsx";
+import { Icon } from "./Icon";
 
-type SelectProps = Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "onChange"> & {
+export type SelectProps = Omit<
+  React.SelectHTMLAttributes<HTMLSelectElement>,
+  "onChange"
+> & {
   invalid?: boolean;
+  /** Called with the selected string value (matches prior API used by pages). */
   onChange?: (value: string) => void;
 };
 
-// Standardized native select. Matches the institutional control-room language of
-// Input: monospace, hairline border, accent on focus. `onChange` receives the
-// selected string value directly (not a ChangeEvent) so call sites stay terse.
+/**
+ * Native select styled to match inputs. Keeps a value-based `onChange` so
+ * existing call sites (`onChange={setX}`) keep working. The chevron is
+ * decorative (aria-hidden).
+ */
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, invalid, onChange, ...props }, ref) => (
-    <select
-      ref={ref}
-      aria-invalid={invalid || undefined}
-      onChange={(e) => onChange?.(e.target.value)}
-      className={clsx(
-        "h-12 px-3 bg-ink text-bone border rounded-none font-mono text-mono-sm outline-none transition-colors",
-        invalid
-          ? "border-danger focus:border-danger"
-          : "border-line focus:border-accent",
-        className
-      )}
-      {...props}
-    />
+  ({ className, invalid, children, onChange, ...props }, ref) => (
+    <div className="relative">
+      <select
+        ref={ref}
+        aria-invalid={invalid || undefined}
+        onChange={(e) => onChange?.(e.target.value)}
+        className={clsx(
+          "h-10 w-full appearance-none rounded-md border bg-card pl-3 pr-9 text-base text-foreground",
+          "transition-colors duration-150 outline-none cursor-pointer",
+          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+          invalid
+            ? "border-destructive focus-visible:ring-destructive/40"
+            : "border-input hover:border-border-strong",
+          className
+        )}
+        {...props}
+      >
+        {children}
+      </select>
+      <Icon
+        name="chevron.down"
+        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+      />
+    </div>
   )
 );
 

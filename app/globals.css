@@ -2,166 +2,115 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * DismissFlow Foundation — global styles.
+ * Calm, premium, light. No noise overlays, no cursor glow, no grid lines.
+ * Motion is subtle and fully disabled under prefers-reduced-motion.
+ */
+
 @layer base {
-  html,
-  body {
-    background-color: #080706;
-    color: #f1e8dc;
-    font-family: var(--font-sans, "Inter"), system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  :root {
+    --font-sans: var(--font-geist-sans), Inter, system-ui, sans-serif;
+    --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+    --radius: 0.625rem;
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-size: 0.9375rem; /* text-base: calm, readable density */
+    line-height: 1.6;
     margin: 0;
-    padding: 0;
+    /* Prevent any accidental horizontal scroll on small screens. */
     overflow-x: hidden;
   }
 
+  /* Sensible default heading weights — consistent hierarchy, no oversized type. */
+  h1, h2, h3, h4 {
+    @apply text-foreground font-semibold tracking-tight;
+  }
+
   ::selection {
-    background: #3b82f6;
-    color: #ffffff;
+    background: rgba(37, 99, 235, 0.16);
+    color: #0f172a;
   }
 
-  /* Visible keyboard focus for non-button controls (buttons carry their own
-     ring via the Button component). Outlined controls (inputs, links) get a
-     blue hairline so keyboard users can see where focus is. */
-  input:focus-visible,
-  a:focus-visible,
-  [role="button"]:focus-visible,
-  summary:focus-visible {
-    outline: 2px solid rgba(59, 130, 246, 0.65);
+  /* Visible, consistent keyboard focus for every interactive element. */
+  :focus-visible {
+    outline: 2px solid #2563eb;
     outline-offset: 2px;
+    border-radius: 4px;
   }
 
-  /* Thin mono scrollbar — Kernel-style. */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+  /* Remove the default focus ring only where we provide our own (buttons, inputs). */
+  button:focus:not(:focus-visible),
+  a:focus:not(:focus-visible) {
+    outline: none;
   }
-  ::-webkit-scrollbar-track {
-    background: #080706;
+
+  /* Calm, thin scrollbars that match the surface palette. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
   }
-  ::-webkit-scrollbar-thumb {
-    background: #1a1a1a;
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
     border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
   }
-  ::-webkit-scrollbar-thumb:hover {
-    background: #2a2a2a;
+  *::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+    background-clip: padding-box;
+    border: 3px solid transparent;
+  }
+}
+
+@layer components {
+  /* A discreet eyebrow/kicker used above section titles. Not mono, not glowing. */
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground;
   }
 }
 
 @layer utilities {
-  /* Mono caps eyebrow — Revora-style. */
-  .eyebrow {
-    font-family: var(--font-geist-mono, "Geist Mono"), ui-monospace, monospace;
-    font-size: 9px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: #91877e;
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .eyebrow i {
-    width: 8px;
-    height: 8px;
-    background: #3b82f6;
-    box-shadow: 0 0 15px rgba(59, 130, 246, 0.45);
-    border-radius: 50%;
+  /* Screen-reader-only helper for labels/status text. */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
-  /* Section shell — Revora max-width + grid lines. */
-  .section-shell {
-    width: min(1240px, calc(100% - 64px));
-    margin: 0 auto;
+  /* Tabular figures for IDs, counts, and times. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
   }
-  .section-grid {
-    background-image: linear-gradient(
-        to right,
-        transparent calc(25% - 0.5px),
-        rgba(241, 232, 220, 0.06) 25%,
-        transparent calc(25% + 0.5px)
-      ),
-      linear-gradient(
-        to right,
-        transparent calc(50% - 0.5px),
-        rgba(241, 232, 220, 0.06) 50%,
-        transparent calc(50% + 0.5px)
-      ),
-      linear-gradient(
-        to right,
-        transparent calc(75% - 0.5px),
-        rgba(241, 232, 220, 0.06) 75%,
-        transparent calc(75% + 0.5px)
-      );
-  }
+}
 
-  /* Kernel cursor glow that follows the pointer. */
-  .cursor-glow {
-    position: fixed;
-    width: 600px;
-    height: 600px;
-    background: radial-gradient(
-      circle,
-      rgba(59, 130, 246, 0.08) 0%,
-      transparent 70%
-    );
-    border-radius: 50%;
-    pointer-events: none;
-    transform: translate(-50%, -50%);
-    z-index: 50;
-    transition: opacity 0.3s ease;
-  }
-
-  /* Revora noise overlay — fixed, low opacity, on top of everything. */
-  .noise-overlay {
-    position: relative;
-  }
-  .noise-overlay::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 100;
-    opacity: 0.05;
-  }
-
-  /* Hairline 1px border, used everywhere instead of heavy shadows. */
-  .hairline {
-    border: 1px solid rgba(241, 232, 220, 0.14);
-  }
-  .hairline-hot {
-    border: 1px solid rgba(59, 130, 246, 0.56);
-  }
-
-  /* Reveal helpers — used with CSS @keyframes for non-JS fallbacks. */
-  .reveal-up {
-    animation: reveal-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    opacity: 0;
-  }
-  .reveal-delay-1 { animation-delay: 0.1s; }
-  .reveal-delay-2 { animation-delay: 0.2s; }
-  .reveal-delay-3 { animation-delay: 0.3s; }
-  .reveal-delay-4 { animation-delay: 0.4s; }
-
-  @keyframes reveal-up {
-    from {
-      opacity: 0;
-      transform: translateY(30px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.001ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.001ms !important;
-    }
+/* Honor the user's motion preference everywhere. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }

@@ -1,37 +1,41 @@
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
-// Mono caps label — Revora's signature metadata. Sizes mirror DESIGN.md.
+type Tone = "neutral" | "muted" | "accent" | "success" | "danger" | "bone";
+
+const TONES: Record<Tone, string> = {
+  neutral: "text-foreground",
+  muted: "text-muted-foreground",
+  accent: "text-primary",
+  success: "text-success",
+  danger: "text-destructive",
+  bone: "text-foreground"
+};
+
+/**
+ * Small caption / metadata label. Kept for existing call sites; intentionally
+ * subtle (no heavy mono, no glow) to fit the calm foundation style.
+ */
 export function MonoLabel({
   children,
   size = "sm",
   tone = "muted",
-  className
+  className,
+  uppercase = false
 }: {
   children: ReactNode;
-  size?: "xs" | "sm" | "md";
-  tone?: "muted" | "bone" | "accent" | "success" | "danger";
+  size?: "xs" | "sm";
+  tone?: Tone;
   className?: string;
+  uppercase?: boolean;
 }) {
-  const sizeClass = {
-    xs: "text-mono-xs",
-    sm: "text-mono-sm",
-    md: "text-mono-md"
-  }[size];
-  const toneClass = {
-    muted: "text-muted",
-    bone: "text-bone",
-    accent: "text-accent",
-    success: "text-success",
-    danger: "text-danger"
-  }[tone];
-
   return (
     <span
       className={clsx(
-        "font-mono uppercase tracking-widest",
-        sizeClass,
-        toneClass,
+        "inline-flex items-center gap-1.5 font-medium",
+        size === "xs" ? "text-xs" : "text-sm",
+        TONES[tone],
+        uppercase && "uppercase tracking-wide",
         className
       )}
     >

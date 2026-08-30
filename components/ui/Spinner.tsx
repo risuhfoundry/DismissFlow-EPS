@@ -1,23 +1,35 @@
 import clsx from "clsx";
 
-// Animated loading spinner — Kernel blue, GPU-cheap rotation. Uses Tailwind's
-// built-in animate-spin so it respects prefers-reduced-motion automatically.
-// Replaces the static Icon name="timer" that previously stood in for a spinner.
 export function Spinner({
-  className = "h-5 w-5",
+  className,
   label = "Loading"
 }: {
   className?: string;
   label?: string;
 }) {
   return (
-    <span
+    <svg
+      className={clsx("animate-spin text-current", className ?? "h-5 w-5")}
+      viewBox="0 0 24 24"
+      fill="none"
       role="status"
       aria-label={label}
-      className={clsx(
-        "inline-block rounded-full border-2 border-line border-t-accent animate-spin",
-        className
-      )}
-    />
+    >
+      <circle
+        className="opacity-20"
+        cx="12"
+        cy="12"
+        r="9"
+        stroke="currentColor"
+        strokeWidth="2.5"
+      />
+      <path
+        className="opacity-90"
+        d="M21 12a9 9 0 0 0-9-9"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }

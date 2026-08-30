@@ -1,46 +1,44 @@
 import clsx from "clsx";
 import type { ReactNode } from "react";
-import { MonoLabel } from "./MonoLabel";
+import { Badge } from "./Badge";
 
-// Page header — one consistent shape for every route: a mono eyebrow (with the
-// blue tick + optional version badge), a single <h1> (display scale), and an
-// optional description. Fixes the previous inconsistency where pages mixed the
-// `.eyebrow` helper with bare <h2> headings, which broke heading hierarchy.
+/**
+ * PageHeader — consistent page title block: eyebrow (kicker) + <h1> + optional
+ * description and badge. One shape for every future role page.
+ */
 export function PageHeader({
   eyebrow,
   title,
   description,
   badge,
+  actions,
   className
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: ReactNode;
   description?: ReactNode;
   badge?: string;
+  actions?: ReactNode;
   className?: string;
 }) {
   return (
-    <header className={clsx("border-b border-line pb-8", className)}>
-      <span className="eyebrow">
-        <i />
-        {eyebrow}
-        {badge && (
-          <span className="ml-1 px-1.5 py-0.5 border border-line text-mono-xs">
-            {badge}
-          </span>
+    <header className={clsx("flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between", className)}>
+      <div className="min-w-0">
+        {eyebrow && <p className="eyebrow mb-2">{eyebrow}</p>}
+        <h1 className="text-h1 text-foreground">{title}</h1>
+        {description && (
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{description}</p>
         )}
-      </span>
-      <h1 className="font-display text-display-md uppercase text-bone mt-4 leading-none">
-        {title}
-      </h1>
-      {description && (
-        <p className="mt-4 max-w-2xl text-muted leading-relaxed">{description}</p>
-      )}
+      </div>
+      <div className="flex shrink-0 items-center gap-3">
+        {badge && <Badge tone="neutral">{badge}</Badge>}
+        {actions}
+      </div>
     </header>
   );
 }
 
-// A smaller section kicker used to label panels / groups within a page.
+/** Section kicker used to label groups within a page. */
 export function SectionLabel({
   children,
   className
@@ -48,9 +46,5 @@ export function SectionLabel({
   children: ReactNode;
   className?: string;
 }) {
-  return (
-    <MonoLabel size="xs" tone="muted" className={className}>
-      {children}
-    </MonoLabel>
-  );
+  return <p className={clsx("eyebrow", className)}>{children}</p>;
 }

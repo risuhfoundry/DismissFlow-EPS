@@ -1,9 +1,10 @@
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
-// Responsive data table. Wraps the <table> in an overflow-x-auto container with
-// a min-width so wide admin tables scroll horizontally on small screens instead
-// of breaking the layout or being clipped by the global overflow-x:hidden.
+/**
+ * Responsive data table. Wrapped in overflow-x-auto with a min-width so wide
+ * tables scroll horizontally on small screens instead of breaking layout.
+ */
 export function Table({
   children,
   className,
@@ -14,9 +15,9 @@ export function Table({
   minWidth?: string;
 }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="w-full overflow-x-auto">
       <table
-        className={clsx("w-full text-left border-collapse", className)}
+        className={clsx("w-full border-collapse text-left text-sm", className)}
         style={{ minWidth }}
       >
         {children}
@@ -34,8 +35,9 @@ export function Th({
 }) {
   return (
     <th
+      scope="col"
       className={clsx(
-        "px-5 py-3 font-mono uppercase tracking-widest text-mono-xs text-muted whitespace-nowrap border-b border-line",
+        "whitespace-nowrap border-b border-border px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground",
         className
       )}
     >
@@ -52,7 +54,9 @@ export function Td({
   className?: string;
 }) {
   return (
-    <td className={clsx("px-5 py-4 whitespace-nowrap", className)}>{children}</td>
+    <td className={clsx("whitespace-nowrap px-4 py-3 text-foreground", className)}>
+      {children}
+    </td>
   );
 }
 
@@ -66,7 +70,7 @@ export function Tr({
   return (
     <tr
       className={clsx(
-        "border-b border-line/60 hover:bg-panel-alt transition-colors",
+        "border-b border-border transition-colors last:border-0 hover:bg-muted/60",
         className
       )}
     >

@@ -4,48 +4,47 @@ import clsx from "clsx";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { Spinner } from "./Spinner";
 
-// Unified button system for DismissFlow. Replaces the ad-hoc inline button
-// classes that were duplicated across every page. One visual language:
-//   primary      — blue fill, glow, the main call to action
-//   secondary    — hairline ghost, neutral
-//   danger       — red fill, destructive confirm
-//   dangerOutline— red outline, destructive affordance
-//   ghost        — text-only, for low-emphasis inline actions
-// All variants share the focus-visible ring, disabled, and loading contract.
-
+/**
+ * DismissFlow button system.
+ *
+ * Variants: primary | secondary | outline | ghost | danger
+ * Sizes:    sm | md | lg
+ * States:   default / hover / active / focus-visible / disabled / loading.
+ *
+ * Loading buttons set `aria-busy` and disable pointer events so a second
+ * submit cannot fire (prevents duplicate submission).
+ */
 export type ButtonVariant =
   | "primary"
   | "secondary"
-  | "danger"
-  | "dangerOutline"
-  | "ghost";
+  | "outline"
+  | "ghost"
+  | "danger";
 
 export type ButtonSize = "sm" | "md" | "lg";
 
 const BASE =
-  "group inline-flex items-center justify-center gap-3 select-none " +
-  "font-mono uppercase tracking-widest font-semibold " +
-  "transition-all duration-200 " +
-  "outline-none focus-visible:ring-2 focus-visible:ring-accent/70 focus-visible:ring-offset-2 focus-visible:ring-offset-ink " +
+  "inline-flex items-center justify-center gap-2 select-none font-medium " +
+  "rounded-md transition-colors duration-150 ease-standard " +
+  "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background " +
   "disabled:opacity-50 disabled:pointer-events-none";
 
 const SIZES: Record<ButtonSize, string> = {
-  sm: "h-10 px-4 text-mono-xs",
-  md: "h-12 px-5 text-mono-sm",
-  lg: "h-14 px-7 text-mono-sm"
+  sm: "h-9 px-3.5 text-sm",
+  md: "h-10 px-4 text-sm",
+  lg: "h-12 px-6 text-base"
 };
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    "bg-accent text-white shadow-accent-glow hover:-translate-y-0.5 hover:bg-accent-deep active:scale-[0.98]",
+    "bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-active",
   secondary:
-    "hairline bg-panel text-bone hover:bg-panel-alt hover:border-line",
+    "bg-secondary text-secondary-foreground hover:bg-border/70 border border-border",
+  outline:
+    "bg-transparent text-foreground border border-border hover:bg-muted",
+  ghost: "bg-transparent text-secondary-foreground hover:bg-muted",
   danger:
-    "bg-danger text-white shadow-[0_0_30px_rgba(255,59,32,0.25)] hover:-translate-y-0.5 active:scale-[0.98]",
-  dangerOutline:
-    "hairline text-danger hover:bg-danger hover:text-white active:scale-[0.98]",
-  ghost:
-    "text-muted hover:text-bone hover:bg-panel-alt"
+    "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive-hover"
 };
 
 export interface ButtonProps
@@ -54,6 +53,8 @@ export interface ButtonProps
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
+  leftIcon?: ReactNode;
+  rightIcon?: ReactNode;
 }
 
 export function Button({
@@ -62,48 +63,56 @@ export function Button({
   size = "md",
   loading = false,
   disabled,
+  leftIcon,
+  rightIcon,
   className,
+  type = "button",
   ...rest
 }: ButtonProps) {
   return (
     <button
+      type={type}
       className={clsx(BASE, SIZES[size], VARIANTS[variant], className)}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       {...rest}
     >
       {loading ? (
-        <>
-          <Spinner className="h-4 w-4" />
-          {children}
-        </>
+        <Spinner className="h-4 w-4" />
       ) : (
-        children
+        leftIcon && <span className="shrink-0">{leftIcon}</span>
       )}
+      {children}
+      {!loading && rightIcon && <span className="shrink-0">{rightIcon}</span>}
     </button>
   );
 }
 
-// Variant aliases — keep the call sites readable.
+/* Convenience aliases kept for existing call sites. */
 export function PrimaryButton(props: ButtonProps) {
   return <Button variant="primary" {...props} />;
 }
 export function SecondaryButton(props: ButtonProps) {
   return <Button variant="secondary" {...props} />;
 }
+export function OutlineButton(props: ButtonProps) {
+  return <Button variant="outline" {...props} />;
+}
+export function GhostButton(props: ButtonProps) {
+  return <Button variant="ghost" size={props.size ?? "sm"} {...props} />;
+}
 export function DangerButton(props: ButtonProps) {
   return <Button variant="danger" {...props} />;
 }
 export function DangerOutlineButton(props: ButtonProps) {
-  return <Button variant="dangerOutline" {...props} />;
-}
-export function GhostButton(props: ButtonProps) {
   return (
     <Button
-      variant="ghost"
-      size={props.size ?? "sm"}
+      variant="outline"
+      className={clsx(
+        "border-destructive/40 text-destructive hover:bg-destructive/5 hover:border-destructive",
+        props.className
+      )}
       {...props}
-      className={clsx("px-4", props.className)}
     />
   );
 }

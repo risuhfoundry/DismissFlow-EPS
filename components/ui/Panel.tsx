@@ -1,8 +1,10 @@
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
-// Revora-style panel — square corners, hairline 1px border, dark fill,
-// optional top-bar with mono caps. Use for any card.
+/**
+ * Panel — a neutral surface container with an optional top bar.
+ * `hot` adds a subtle primary accent (use sparingly for emphasis).
+ */
 export function Panel({
   children,
   className,
@@ -17,20 +19,19 @@ export function Panel({
   hot?: boolean;
 }) {
   return (
-    <div
+    <section
       className={clsx(
-        "bg-panel",
-        hot ? "hairline-hot" : "hairline",
-        "shadow-panel",
+        "rounded-lg border bg-card shadow-card",
+        hot ? "border-primary/40" : "border-border",
         className
       )}
     >
       {withTopBar && (
-        <div className="h-12 flex items-center justify-between px-4 border-b border-line text-mono-sm font-mono text-muted uppercase tracking-wider">
+        <div className="flex items-center justify-between border-b border-border px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {topBar}
         </div>
       )}
       {children}
-    </div>
+    </section>
   );
 }

@@ -1,70 +1,70 @@
 import clsx from "clsx";
 import type { ReactNode } from "react";
-import { Icon } from "./Icon";
-import { MonoLabel } from "./MonoLabel";
 import { Spinner } from "./Spinner";
+import { Icon, type IconName } from "./Icon";
 
-// Consistent loading / empty / error surfaces. Previously every page invented
-// its own: some dropped a static Icon name="timer" (no animation) as a spinner,
-// others a bare <p> for empty. These standardise the look and give screen
-// readers a polite live region. Use inside a <Panel>.
-
-function Shell({
-  children,
-  tone = "muted"
+/** Centered loading state for a page or panel region. */
+export function LoadingState({
+  label = "Loading…",
+  message,
+  className
 }: {
-  children: ReactNode;
-  tone?: "muted" | "danger";
+  label?: string;
+  /** Backward-compatible alias for `label`. */
+  message?: string;
+  className?: string;
 }) {
   return (
     <div
       className={clsx(
-        "min-h-[160px] flex flex-col items-center justify-center gap-3 p-10 text-center",
-        tone === "danger" ? "text-danger" : "text-muted"
+        "flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground",
+        className
       )}
-      role={tone === "danger" ? "alert" : "status"}
-      aria-live={tone === "danger" ? "assertive" : "polite"}
+      role="status"
+      aria-live="polite"
     >
-      {children}
+      <Spinner className="h-6 w-6" />
+      <p className="text-sm">{message ?? label}</p>
     </div>
   );
 }
 
-export function LoadingState({ message = "Loading…" }: { message?: string }) {
-  return (
-    <Shell>
-      <Spinner className="h-6 w-6" />
-      <MonoLabel size="sm" tone="muted">
-        {message}
-      </MonoLabel>
-    </Shell>
-  );
-}
-
+/** Empty state with optional icon, action, and helper text. */
 export function EmptyState({
+  icon = "inbox",
+  title,
   message,
-  icon = "history"
+  description,
+  action,
+  className
 }: {
-  message: string;
-  icon?: "history" | "user" | "scan" | "settings" | "qr";
+  icon?: IconName;
+  title?: string;
+  /** Backward-compatible alias for `title`. */
+  message?: ReactNode;
+  description?: ReactNode;
+  action?: ReactNode;
+  className?: string;
 }) {
   return (
-    <Shell>
-      <Icon name={icon} className="h-7 w-7 text-muted/60" strokeWidth={1.2} />
-      <MonoLabel size="sm" tone="muted">
-        {message}
-      </MonoLabel>
-    </Shell>
-  );
-}
-
-export function ErrorState({ message }: { message: string }) {
-  return (
-    <Shell tone="danger">
-      <Icon name="x" className="h-6 w-6" strokeWidth={2} />
-      <MonoLabel size="sm" tone="danger">
-        {message}
-      </MonoLabel>
-    </Shell>
+    <div
+      className={clsx(
+        "flex flex-col items-center justify-center gap-3 px-6 py-16 text-center",
+        className
+      )}
+    >
+      <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <Icon name={icon} className="h-6 w-6" />
+      </span>
+      <div>
+        <p className="text-base font-semibold text-foreground">{title ?? message}</p>
+        {description && (
+          <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+            {description}
+          </p>
+        )}
+      </div>
+      {action && <div className="mt-1">{action}</div>}
+    </div>
   );
 }

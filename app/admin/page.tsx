@@ -1,33 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { motion } from "framer-motion";
+import { Page, Section } from "@/components/layout/Page";
+import { Card, CardContent, CardHeader } from "@/components/ui/Card";
+import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { Icon } from "@/components/ui/Icon";
-import { MonoLabel } from "@/components/ui/MonoLabel";
-import { Panel } from "@/components/ui/Panel";
-import { Stat } from "@/components/ui/Stat";
-import { StatusPill } from "@/components/ui/StatusPill";
-import { StatusIndicator } from "@/components/ui/StatusIndicator";
-import { TopNav } from "@/components/ui/TopNav";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { AccessNote } from "@/components/ui/AccessNote";
-import { LoadingState, EmptyState } from "@/components/ui/StateBlock";
 import { getSessionUser } from "@/lib/auth/session";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRealtimeStatus, useTableChanges } from "@/lib/realtime/subs";
-import type { DismissalStatus } from "@/lib/dismissal/state";
+import {
+  DISMISSAL_STATUSES,
+  dismissalStatusLabel,
+  dismissalStatusTone,
+  type DismissalStatus
+} from "@/lib/dismissal/state";
+import { StatTile, AccessNote } from "./_ui";
 
-const NAV_LINKS = [
-  { label: "Overview", href: "/admin" },
-  { label: "Roster", href: "/admin/roster" },
-  { label: "Classes", href: "/admin/classes" },
-  { label: "Users", href: "/admin/users" },
-  { label: "Monitor", href: "/admin/monitor" },
-  { label: "Logs", href: "/admin/logs" }
-];
-
-type StudentLite = { name: string; admission_no: string; class_name: string | null };
 type ReqRow = {
   request_id: string;
   student_id: string;
@@ -35,48 +24,25 @@ type ReqRow = {
   created_at: string;
   expires_at: string | null;
 };
-
-// All values are derived live from Supabase (RLS-scoped to the admin role).
-// Nothing is hardcoded — counts come from exact head queries, the activity
-// list from real rows. Realtime only re-fetches; it never decides state.
-type CountProxy = {
-  eq: (c: string, v: unknown) => CountProxy;
-  in: (c: string, v: unknown[]) => CountProxy;
-  gte: (c: string, v: string) => CountProxy;
+type StudentLite = {
+  name: string;
+  admission_no: string;
+  class_name: string | null;
 };
 
-async function headCount(
-  supabase: ReturnType<typeof getSupabaseBrowserClient>,
-  table: string,
-  extra?: (q: CountProxy) => void
-): Promise<number> {
-  const holder = { q: supabase.from(table).select("*", { count: "exact", head: true }) };
-  if (extra) {
-    const proxy: CountProxy = {
-      eq: (c, v) => {
-        holder.q = holder.q.eq(c, v);
-        return proxy;
-      },
-      in: (c, v) => {
-        holder.q = holder.q.in(c, v);
-        return proxy;
-      },
-      gte: (c, v) => {
-        holder.q = holder.q.gte(c, v);
-        return proxy;
-      }
-    };
-    extra(proxy);
-  }
-  const { count, error } = await holder.q;
-  if (error) throw error;
-  return count ?? 0;
-}
+// Live connection badge, mirroring the Gate/Teacher portals.
+const REALTIME_TONE: Record<string, { label: string; tone: StatusTone }> = {
+  live: { label: "Live", tone: "primary" },
+  reconnecting: { label: "Reconnecting", tone: "warning" },
+  closed: { label: "Offline", tone: "danger" },
+  connecting: { label: "Connecting", tone: "neutral" }
+};
 
-function startOfToday(): string {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString();
+function fmtTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit"
+  });
 }
 
 export default function AdminOverviewPage() {
@@ -85,78 +51,95 @@ export default function AdminOverviewPage() {
     students: 0,
     classes: 0,
     parents: 0,
-    guardians: 0,
     teachers: 0,
     gates: 0,
     requests: 0,
     active: 0,
-    pending: 0,
-    todaysDismissals: 0,
-    rejectedCancelled: 0
+    awaiting: 0,
+    dismissed: 0,
+    resolved: 0
   });
   const [recent, setRecent] = useState<ReqRow[]>([]);
   const [students, setStudents] = useState<Record<string, StudentLite>>({});
   const [loading, setLoading] = useState(true);
-  const [authNote, setAuthNote] = useState<string | null>(null);
+  const [access, setAccess] = useState<{
+    tone: "info" | "warning";
+    message: string;
+  } | null>(null);
   const status$ = useRealtimeStatus(supabase, "dismissal_requests");
 
   const refresh = useCallback(async () => {
     const sessionUser = await getSessionUser(supabase);
     if (!sessionUser || sessionUser.role !== "admin") {
-      setAuthNote("Sign in as an admin to view the operations overview.");
+      setAccess({
+        tone: "warning",
+        message: "This area is for school administrators. Sign in to view the operations overview."
+      });
       setLoading(false);
       return;
     }
-    const today = startOfToday();
+
+    // All counts are exact head queries, RLS-scoped to the admin's own school.
+    // Nothing is hardcoded — every figure comes from the database.
     const [
-      students,
-      classes,
-      parents,
-      guardians,
-      teachers,
-      gates,
-      requests,
-      active,
-      pending,
-      todaysDismissals,
-      rejectedCancelled
+      { count: studentsC },
+      { count: classesC },
+      { count: parentsC },
+      { count: teachersC },
+      { count: gatesC },
+      { count: requestsC },
+      { count: activeC },
+      { count: awaitingC },
+      { count: dismissedC },
+      { count: resolvedC }
     ] = await Promise.all([
-      headCount(supabase, "students"),
-      headCount(supabase, "classes"),
-      headCount(supabase, "users", (p) => p.eq("role", "parent")),
-      headCount(supabase, "guardians"),
-      headCount(supabase, "users", (p) => p.eq("role", "teacher")),
-      headCount(supabase, "users", (p) => p.eq("role", "gate")),
-      headCount(supabase, "dismissal_requests"),
-      headCount(supabase, "dismissal_requests", (p) => p.in("status", ["REQUESTED", "AWAITING_TEACHER"])),
-      headCount(supabase, "dismissal_requests", (p) => p.eq("status", "AWAITING_TEACHER")),
-      headCount(supabase, "dismissal_requests", (p) =>
-        p.in("status", ["DISMISSED", "REJECTED", "CANCELLED", "EXPIRED"]).gte("updated_at", today)
-      ),
-      headCount(supabase, "dismissal_requests", (p) => p.in("status", ["REJECTED", "CANCELLED"]))
+      supabase.from("students").select("*", { count: "exact", head: true }),
+      supabase.from("classes").select("*", { count: "exact", head: true }),
+      supabase.from("users").select("*", { count: "exact", head: true }).eq("role", "parent"),
+      supabase.from("users").select("*", { count: "exact", head: true }).eq("role", "teacher"),
+      supabase.from("users").select("*", { count: "exact", head: true }).eq("role", "gate"),
+      supabase.from("dismissal_requests").select("*", { count: "exact", head: true }),
+      supabase
+        .from("dismissal_requests")
+        .select("*", { count: "exact", head: true })
+        .in("status", ["REQUESTED", "AWAITING_TEACHER"]),
+      supabase
+        .from("dismissal_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "AWAITING_TEACHER"),
+      supabase
+        .from("dismissal_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "DISMISSED"),
+      supabase
+        .from("dismissal_requests")
+        .select("*", { count: "exact", head: true })
+        .in("status", ["REJECTED", "CANCELLED"])
     ]);
+
     setStats({
-      students,
-      classes,
-      parents,
-      guardians,
-      teachers,
-      gates,
-      requests,
-      active,
-      pending,
-      todaysDismissals,
-      rejectedCancelled
+      students: studentsC ?? 0,
+      classes: classesC ?? 0,
+      parents: parentsC ?? 0,
+      teachers: teachersC ?? 0,
+      gates: gatesC ?? 0,
+      requests: requestsC ?? 0,
+      active: activeC ?? 0,
+      awaiting: awaitingC ?? 0,
+      dismissed: dismissedC ?? 0,
+      resolved: resolvedC ?? 0
     });
 
-    // Recent operational activity (real rows, class-scoped hydrate).
-    const { data: reqs } = await supabase
+    // Recent operational activity (real rows, hydrated with student/class names).
+    const { data: reqs, error: reqErr } = await supabase
       .from("dismissal_requests")
       .select("request_id, student_id, status, created_at, expires_at")
       .order("created_at", { ascending: false })
-      .limit(12);
+      .limit(100);
+    if (reqErr) throw reqErr;
     const rows = (reqs ?? []) as ReqRow[];
     setRecent(rows);
+
     const ids = Array.from(new Set(rows.map((r) => r.student_id)));
     if (ids.length > 0) {
       const { data: stus } = await supabase
@@ -184,7 +167,11 @@ export default function AdminOverviewPage() {
       try {
         await refresh();
       } catch {
-        if (!cancelled) setAuthNote("Could not load the operations overview.");
+        if (!cancelled)
+          setAccess({
+            tone: "info",
+            message: "We couldn't load the operations overview. Please try again shortly."
+          });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -194,142 +181,136 @@ export default function AdminOverviewPage() {
     };
   }, [refresh]);
 
-  // Realtime: re-fetch on any dismissal_requests change. Read/sync only.
+  // Realtime: re-fetch on any dismissal_requests change. Reflect-only.
   const handleChange = useCallback(() => {
     refresh().catch(() => {});
   }, [refresh]);
   useTableChanges<ReqRow>(supabase, "dismissal_requests", "*", handleChange);
 
-  const fmt = (iso: string) =>
-    new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  const liveMeta = REALTIME_TONE[status$] ?? REALTIME_TONE.connecting;
 
   return (
-    <>
-      <TopNav
-        links={NAV_LINKS}
-        trailing={<StatusIndicator status={status$} />}
-      />
-
-      <main className="pt-24 pb-16 section-shell">
-        <PageHeader
-          eyebrow="04 / ADMIN OVERVIEW"
-          title="Operations"
-          description="Live operational picture. Every figure below is computed from the database by the admin role's Row-Level Security scope — nothing is hardcoded. Dismissal state itself is owned by the trusted Edge Functions; this portal only observes it."
+    <Page
+      title="Operations overview"
+      description="Live operational picture for your school. Every figure is computed from the database by the administrator's Row-Level Security scope — nothing is hardcoded. Dismissal state itself is owned by the trusted Edge Functions; this portal only observes it."
+      actions={
+        <StatusBadge tone={liveMeta.tone} pulse={status$ === "live"}>
+          {liveMeta.label}
+        </StatusBadge>
+      }
+    >
+      {access && (
+        <AccessNote
+          tone={access.tone}
+          message={access.message}
+          signInHref="/login/admin"
+          signInLabel="Sign in"
         />
+      )}
 
-        {authNote && (
-          <div className="mt-8">
-            <AccessNote message={authNote} signInHref="/login/admin" signInLabel="Sign In" />
-          </div>
-        )}
+      {!access && loading && (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="py-4">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="mt-2 h-7 w-12" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
-        {!authNote && loading && (
-          <div className="mt-10">
-            <LoadingState message="Loading operations…" />
-          </div>
-        )}
+      {!access && !loading && (
+        <div className="space-y-10">
+          <Section title="School population">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+              <StatTile label="Students" value={stats.students} />
+              <StatTile label="Classes" value={stats.classes} />
+              <StatTile label="Parents" value={stats.parents} />
+              <StatTile label="Teachers" value={stats.teachers} />
+              <StatTile label="Gate staff" value={stats.gates} />
+            </div>
+          </Section>
 
-        {!authNote && !loading && (
-          <div className="mt-10 grid gap-8">
-            {/* People + classes */}
-            <Section title="POPULATION">
-              <Stat label="STUDENTS" value={stats.students} />
-              <Stat label="CLASSES" value={stats.classes} />
-              <Stat label="PARENTS" value={stats.parents} />
-              <Stat label="GUARDIANS" value={stats.guardians} />
-              <Stat label="TEACHERS" value={stats.teachers} />
-              <Stat label="GATE USERS" value={stats.gates} />
-            </Section>
+          <Section title="Dismissals">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+              <StatTile label="Total requests" value={stats.requests} />
+              <StatTile label="Active" value={stats.active} accent />
+              <StatTile label="Awaiting teacher" value={stats.awaiting} accent />
+              <StatTile label="Dismissed" value={stats.dismissed} />
+              <StatTile label="Rejected / cancelled" value={stats.resolved} />
+            </div>
+          </Section>
 
-            {/* Dismissal operations */}
-            <Section title="DISMISSALS">
-              <Stat label="TOTAL REQUESTS" value={stats.requests} />
-              <Stat label="ACTIVE" value={stats.active} accent />
-              <Stat label="PENDING TEACHER" value={stats.pending} accent />
-              <Stat label="DISMISSED TODAY" value={stats.todaysDismissals} />
-              <Stat label="REJECTED / CANCELLED" value={stats.rejectedCancelled} />
-            </Section>
-
-            {/* Status distribution — derived from the rows we already hold. */}
-            <Section title="STATUS DISTRIBUTION">
-              {(["REQUESTED", "AWAITING_TEACHER", "DISMISSED", "REJECTED", "CANCELLED", "EXPIRED"] as DismissalStatus[]).map(
-                (s) => (
-                  <Stat
-                    key={s}
-                    label={s.replace("_", " ")}
-                    value={recent.filter((r) => r.status === s).length}
-                  />
-                )
-              )}
-            </Section>
-
-            {/* Recent activity */}
-            <Panel
-              withTopBar
-              topBar={
-                <>
-                  <span>03 / RECENT DISMISSAL ACTIVITY</span>
-                  <Link
-                    href="/admin/monitor"
-                    className="font-mono uppercase tracking-widest text-mono-xs text-accent hover:text-bone transition-colors"
-                  >
-                    MONITOR →
-                  </Link>
-                </>
-              }
-            >
+          <Section
+            title="Recent dismissal activity"
+            action={
+              <a
+                href="/admin/dismissals"
+                className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+              >
+                View all
+                <Icon name="chevron.right" className="h-4 w-4" strokeWidth={2} />
+              </a>
+            }
+          >
+            <Card>
               {recent.length === 0 ? (
-                <EmptyState message="No dismissal requests yet." icon="history" />
+                <CardContent className="py-10">
+                  <p className="text-center text-sm text-muted-foreground">
+                    No dismissal requests yet.
+                  </p>
+                </CardContent>
               ) : (
-                <ul className="divide-y divide-line">
-                  {recent.map((r) => {
+                <ul className="divide-y divide-border">
+                  {recent.slice(0, 8).map((r) => {
                     const s = students[r.student_id];
                     return (
                       <li
                         key={r.request_id}
-                        className="p-5 flex items-center justify-between gap-4"
+                        className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
                       >
-                        <div className="flex flex-col gap-1 min-w-0">
-                          <p className="font-display text-xl uppercase text-bone leading-none truncate">
+                        <div className="flex min-w-0 flex-col gap-1">
+                          <p className="truncate font-semibold text-foreground">
                             {s?.name ?? "—"}
                           </p>
-                          <p className="font-mono text-mono-xs uppercase tracking-widest text-muted">
+                          <p className="text-xs text-muted-foreground tabular-nums">
                             ADM {s?.admission_no ?? "—"}
-                            {s?.class_name ? ` · ${s.class_name.toUpperCase()}` : ""}
+                            {s?.class_name ? ` · ${s.class_name}` : ""}
                           </p>
                         </div>
-                        <div className="flex items-center gap-4 shrink-0">
-                          <span className="font-mono text-mono-xs uppercase tracking-widest text-muted">
-                            {fmt(r.created_at)}
+                        <div className="flex items-center gap-4">
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {fmtTime(r.created_at)}
                           </span>
-                          <StatusPill status={r.status} />
+                          <StatusBadge tone={dismissalStatusTone(r.status)}>
+                            {dismissalStatusLabel(r.status)}
+                          </StatusBadge>
                         </div>
                       </li>
                     );
                   })}
                 </ul>
               )}
-            </Panel>
-          </div>
-        )}
-      </main>
-    </>
-  );
-}
+            </Card>
+          </Section>
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-    >
-      <MonoLabel size="xs" tone="muted">
-        {title}
-      </MonoLabel>
-      <div className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px bg-line">
-        {children}
-      </div>
-    </motion.div>
+          <Section title="Status mix">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+              {DISMISSAL_STATUSES.map((s) => (
+                <StatTile
+                  key={s}
+                  label={dismissalStatusLabel(s)}
+                  value={
+                    recent.filter((r) => r.status === s).length
+                  }
+                />
+              ))}
+            </div>
+          </Section>
+        </div>
+      )}
+    </Page>
   );
 }

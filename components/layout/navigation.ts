@@ -49,14 +49,17 @@ export function getNavForRole(role: Role): NavConfig {
         {
           items: [
             { label: "Queue", href: "/teacher", icon: "clipboard" },
-            { label: "Classes", href: "/teacher/classes", icon: "school" }
+            { label: "Profile", href: "/teacher/profile", icon: "user" }
           ]
         }
       ];
     case "gate":
       return [
         {
-          items: [{ label: "Release", href: "/gate", icon: "scan" }]
+          items: [
+            { label: "Scan", href: "/gate", icon: "scan" },
+            { label: "Profile", href: "/gate/profile", icon: "user" }
+          ]
         }
       ];
     case "admin":
@@ -64,18 +67,17 @@ export function getNavForRole(role: Role): NavConfig {
         {
           label: "Operations",
           items: [
-            { label: "Dashboard", href: "/admin", icon: "grid" },
+            { label: "Overview", href: "/admin", icon: "grid" },
+            { label: "People", href: "/admin/people", icon: "users" },
+            { label: "Students", href: "/admin/students", icon: "clipboard" },
             { label: "Classes", href: "/admin/classes", icon: "school" },
-            { label: "Roster", href: "/admin/roster", icon: "users" },
-            { label: "Users", href: "/admin/users", icon: "key" }
+            { label: "Dismissals", href: "/admin/dismissals", icon: "activity" },
+            { label: "Activity", href: "/admin/activity", icon: "history" }
           ]
         },
         {
-          label: "System",
-          items: [
-            { label: "Monitor", href: "/admin/monitor", icon: "activity" as IconName },
-            { label: "Logs", href: "/admin/logs", icon: "history" }
-          ]
+          label: "Account",
+          items: [{ label: "Profile", href: "/admin/profile", icon: "user" }]
         }
       ];
     default:

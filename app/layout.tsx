@@ -4,6 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { SmoothScroll } from "@/components/effects/SmoothScroll";
 import { CursorGlow } from "@/components/effects/CursorGlow";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -41,6 +42,7 @@ export default function RootLayout({
         <SmoothScroll />
         <CursorGlow />
         {children}
+        <Analytics />
       </body>
     </html>
   );

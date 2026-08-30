@@ -7,6 +7,8 @@ export type SelectProps = Omit<
   "onChange"
 > & {
   invalid?: boolean;
+  /** Validated/success state — green border. Lower priority than `invalid`. */
+  valid?: boolean;
   /** Called with the selected string value (matches prior API used by pages). */
   onChange?: (value: string) => void;
 };
@@ -17,7 +19,7 @@ export type SelectProps = Omit<
  * decorative (aria-hidden).
  */
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, invalid, children, onChange, ...props }, ref) => (
+  ({ className, invalid, valid, children, onChange, ...props }, ref) => (
     <div className="relative">
       <select
         ref={ref}
@@ -29,7 +31,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
           invalid
             ? "border-destructive focus-visible:ring-destructive/40"
-            : "border-input hover:border-border-strong",
+            : valid
+              ? "border-success focus-visible:ring-success/40"
+              : "border-input hover:border-border-strong",
           className
         )}
         {...props}

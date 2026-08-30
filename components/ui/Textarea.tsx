@@ -3,10 +3,12 @@ import clsx from "clsx";
 
 export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
   invalid?: boolean;
+  /** Validated/success state — green border. Lower priority than `invalid`. */
+  valid?: boolean;
 };
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, invalid, rows = 4, ...props }, ref) => (
+  ({ className, invalid, valid, rows = 4, ...props }, ref) => (
     <textarea
       ref={ref}
       rows={rows}
@@ -17,7 +19,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
         invalid
           ? "border-destructive focus-visible:ring-destructive/40"
-          : "border-input hover:border-border-strong",
+          : valid
+            ? "border-success focus-visible:ring-success/40"
+            : "border-input hover:border-border-strong",
         className
       )}
       {...props}

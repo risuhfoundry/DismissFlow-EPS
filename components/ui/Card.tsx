@@ -4,20 +4,45 @@ import type { HTMLAttributes, ReactNode } from "react";
 /**
  * Card — the primary elevated surface. Compose with CardHeader / CardTitle /
  * CardDescription / CardContent / CardFooter, or use bare with padding.
+ *
+ * `tone` provides a consistent visual language:
+ *   default     — neutral surface (default)
+ *   interactive — hover lift, used for clickable cards
+ *   selected    — primary ring for a chosen card
+ *   danger      — destructive emphasis
+ *   success     — positive emphasis
+ *   muted       — recessed / disabled-feeling surface
+ *   soft        — subtle tinted surface (surface-subtle)
  */
+export type CardTone =
+  | "default"
+  | "interactive"
+  | "selected"
+  | "danger"
+  | "success"
+  | "muted"
+  | "soft";
+
+const TONES: Record<CardTone, string> = {
+  default: "border-border bg-card shadow-card",
+  interactive:
+    "border-border bg-card shadow-card transition-shadow duration-150 hover:shadow-popover hover:border-border-strong",
+  selected:
+    "border-primary/60 bg-card shadow-card ring-1 ring-primary/40",
+  danger: "border-destructive/40 bg-destructive-soft shadow-card",
+  success: "border-success/40 bg-success-soft shadow-card",
+  muted: "border-border bg-surface-subtle shadow-none",
+  soft: "border-transparent bg-surface-subtle shadow-none"
+};
+
 export function Card({
   className,
-  interactive,
+  tone = "default",
   ...props
-}: HTMLAttributes<HTMLDivElement> & { interactive?: boolean }) {
+}: HTMLAttributes<HTMLDivElement> & { tone?: CardTone }) {
   return (
     <div
-      className={clsx(
-        "rounded-lg border border-border bg-card text-card-foreground shadow-card",
-        interactive &&
-          "transition-shadow duration-150 hover:shadow-popover focus-within:shadow-popover",
-        className
-      )}
+      className={clsx("rounded-xl", TONES[tone], className)}
       {...props}
     />
   );

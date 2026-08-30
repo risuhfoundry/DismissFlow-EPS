@@ -42,10 +42,10 @@ export function Sidebar({
                 aria-current={active ? "page" : undefined}
                 onClick={onNavigate}
                 className={clsx(
-                  "group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium outline-none transition-colors",
+                  "group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium outline-none transition-colors",
                   "focus-visible:ring-2 focus-visible:ring-ring",
                   active
-                    ? "bg-primary-soft text-primary"
+                    ? "bg-primary-soft text-primary before:absolute before:inset-y-1.5 before:left-0 before:w-1 before:rounded-full before:bg-primary before:content-['']"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >

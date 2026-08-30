@@ -3,6 +3,8 @@ import clsx from "clsx";
 
 export type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   invalid?: boolean;
+  /** Validated/success state — green border. Lower priority than `invalid`. */
+  valid?: boolean;
 };
 
 /**
@@ -11,7 +13,7 @@ export type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
  * wired with `aria-describedby`.
  */
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, invalid, ...props }, ref) => (
+  ({ className, invalid, valid, ...props }, ref) => (
     <input
       ref={ref}
       aria-invalid={invalid || undefined}
@@ -21,7 +23,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
         invalid
           ? "border-destructive focus-visible:ring-destructive/40"
-          : "border-input hover:border-border-strong",
+          : valid
+            ? "border-success focus-visible:ring-success/40"
+            : "border-input hover:border-border-strong",
         className
       )}
       {...props}

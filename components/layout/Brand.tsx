@@ -38,7 +38,7 @@ export function Wordmark({ className }: { className?: string }) {
   return (
     <span className={clsx("inline-flex items-center gap-2.5", className)}>
       <Logo />
-      <span className="text-title font-semibold tracking-tight text-foreground">
+      <span className="text-base font-semibold tracking-tight text-foreground sm:text-title">
         DismissFlow
       </span>
     </span>

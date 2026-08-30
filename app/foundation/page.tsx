@@ -17,6 +17,8 @@ import { Label } from "@/components/ui/Label";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { StatusPill } from "@/components/ui/StatusPill";
+import type { DismissalStatus } from "@/lib/dismissal/state";
 import { Avatar } from "@/components/ui/Avatar";
 import { Divider } from "@/components/ui/Divider";
 import { Stat, StatCard } from "@/components/ui/Stat";
@@ -48,6 +50,7 @@ const NAV: NavConfig = [
     label: "Components",
     items: [
       { label: "Surfaces", href: "#surfaces", icon: "grid" },
+      { label: "Status", href: "#status", icon: "activity" },
       { label: "Data", href: "#data", icon: "history" },
       { label: "Overlays", href: "#overlays", icon: "scan" },
       { label: "States", href: "#states", icon: "info" }
@@ -57,11 +60,27 @@ const NAV: NavConfig = [
 
 const SAMPLE_USER = { name: "J. Staff", role: "admin" as const };
 
+/* ---- DismissFlow status language ------------------------------------------- */
+const DISMISSAL_STATES: DismissalStatus[] = [
+  "REQUESTED",
+  "AWAITING_TEACHER",
+  "DISMISSED",
+  "REJECTED",
+  "CANCELLED",
+  "EXPIRED"
+];
+
+const EXAMPLE_ROWS = [
+  { ref: "REF-001", label: "Example A", state: "Active" },
+  { ref: "REF-002", label: "Example B", state: "Pending" },
+  { ref: "REF-003", label: "Example C", state: "Closed" }
+];
+
 /* ---- Small helpers -------------------------------------------------------- */
-function Demo({ title, children }: { title: string; children: ReactNode }) {
+function Demo({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return (
-    <Card>
-      <CardHeader title={title} />
+    <Card tone="default">
+      <CardHeader title={title} description={description} />
       <CardContent>
         <div className="flex flex-wrap items-center gap-3">{children}</div>
       </CardContent>
@@ -69,22 +88,51 @@ function Demo({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function Swatch({ name, value, className }: { name: string; value: string; className?: string }) {
+function Swatch({ name, className }: { name: string; className: string }) {
   return (
     <div className="flex flex-col gap-2">
-      <div className={className ?? "h-14 w-full rounded-md border border-border"} style={{ background: value }} />
-      <div>
-        <p className="text-xs font-semibold text-foreground">{name}</p>
-        <p className="text-xs text-muted-foreground">{value}</p>
-      </div>
+      <div className={`h-14 w-full rounded-lg border border-border ${className}`} />
+      <p className="text-xs font-semibold text-foreground">{name}</p>
     </div>
   );
 }
 
-const EXAMPLE_ROWS = [
-  { ref: "REF-001", label: "Example A", state: "Active" },
-  { ref: "REF-002", label: "Example B", state: "Pending" },
-  { ref: "REF-003", label: "Example C", state: "Closed" }
+const TYPE_SCALE: { name: string; cls: string }[] = [
+  { name: "Display", cls: "text-display" },
+  { name: "H1", cls: "text-h1" },
+  { name: "H2", cls: "text-h2" },
+  { name: "H3", cls: "text-h3" },
+  { name: "H4", cls: "text-h4" },
+  { name: "Body large", cls: "text-body-lg" },
+  { name: "Body", cls: "text-base" },
+  { name: "Body small", cls: "text-sm" },
+  { name: "Caption", cls: "text-caption" },
+  { name: "Label", cls: "text-label" },
+  { name: "Overline", cls: "text-overline uppercase" }
+];
+
+const RADIUS = [
+  { r: "sm", cls: "rounded-sm" },
+  { r: "md", cls: "rounded-md" },
+  { r: "lg", cls: "rounded-lg" },
+  { r: "xl", cls: "rounded-xl" },
+  { r: "2xl", cls: "rounded-2xl" },
+  { r: "pill", cls: "rounded-full" }
+];
+
+const SHADOWS = [
+  { s: "card", cls: "shadow-card" },
+  { s: "popover", cls: "shadow-popover" },
+  { s: "focus", cls: "shadow-focus" }
+];
+
+const SPACING = [
+  { px: 4, cls: "h-4" },
+  { px: 8, cls: "h-8" },
+  { px: 12, cls: "h-12" },
+  { px: 16, cls: "h-16" },
+  { px: 24, cls: "h-24" },
+  { px: 32, cls: "h-32" }
 ];
 
 export default function FoundationShowcase() {
@@ -101,6 +149,7 @@ function ShowcaseBody() {
   const [drawer, setDrawer] = useState(false);
   const [loading, setLoading] = useState(false);
   const [invalid, setInvalid] = useState(false);
+  const [valid, setValid] = useState(false);
 
   const columns: Column<(typeof EXAMPLE_ROWS)[number]>[] = [
     { key: "ref", header: "Reference", render: (r) => <span className="font-medium">{r.ref}</span> },
@@ -118,62 +167,87 @@ function ShowcaseBody() {
 
   return (
     <>
-      <Page
-        title="Design System"
-        description="The DismissFlow frontend foundation. A calm, premium, accessible component library shared by every future role phase."
-      >
-        {/* FOUNDATIONS */}
-        <Section id="foundations" title="Foundations">
-          <Card>
-            <CardHeader title="Color tokens" description="Semantic, not page-specific." />
+    <Page
+      title="Design System"
+      description="The DismissFlow visual design language — a calm, premium, accessible foundation shared by every future role phase."
+    >
+      {/* FOUNDATIONS */}
+      <Section id="foundations" title="Foundations">
+        <Card tone="default">
+          <CardHeader title="Color tokens" description="Semantic, not page-specific. One source of truth." />
+          <CardContent className="space-y-6">
+            <div>
+              <p className="mb-3 text-label text-foreground">Canvas &amp; surfaces</p>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+                <Swatch name="background" className="bg-background" />
+                <Swatch name="surface-subtle" className="bg-surface-subtle" />
+                <Swatch name="surface-elevated (card)" className="bg-card" />
+                <Swatch name="border" className="bg-border" />
+                <Swatch name="border-strong" className="bg-border-strong" />
+                <Swatch name="text-primary" className="bg-foreground" />
+              </div>
+            </div>
+            <div>
+              <p className="mb-3 text-label text-foreground">Text</p>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-3">
+                <Swatch name="text-primary" className="bg-foreground" />
+                <Swatch name="text-secondary" className="bg-content-secondary" />
+                <Swatch name="text-muted" className="bg-muted-foreground" />
+              </div>
+            </div>
+            <div>
+              <p className="mb-3 text-label text-foreground">Intent &amp; feedback</p>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+                <Swatch name="primary" className="bg-primary" />
+                <Swatch name="primary-hover" className="bg-primary-hover" />
+                <Swatch name="primary-active" className="bg-primary-active" />
+                <Swatch name="primary-subtle" className="bg-primary-subtle" />
+                <Swatch name="success" className="bg-success" />
+                <Swatch name="success-subtle" className="bg-success-subtle" />
+                <Swatch name="warning" className="bg-warning" />
+                <Swatch name="warning-subtle" className="bg-warning-subtle" />
+                <Swatch name="danger" className="bg-destructive" />
+                <Swatch name="danger-subtle" className="bg-destructive-subtle" />
+                <Swatch name="info" className="bg-info" />
+                <Swatch name="info-subtle" className="bg-info-subtle" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card tone="default">
+          <CardHeader title="Typography" description="Clear hierarchy. No oversized headings." />
+          <CardContent className="space-y-3">
+            {TYPE_SCALE.map((t) => (
+              <div key={t.name} className="flex items-baseline gap-4 border-b border-border pb-2 last:border-0">
+                <span className="w-28 shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t.name}
+                </span>
+                <p className={`${t.cls} text-foreground`}>The quick brown fox jumps</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <CardGrid cols="3">
+          <Card tone="default">
+            <CardHeader title="Spacing" />
             <CardContent>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                <Swatch name="background" value="#F6F8FB" />
-                <Swatch name="surface" value="#FFFFFF" className="border border-border" />
-                <Swatch name="border" value="#E4E8EF" className="border border-border" />
-                <Swatch name="text" value="#0F172A" />
-                <Swatch name="muted" value="#64748B" />
-                <Swatch name="primary" value="#2563EB" />
-                <Swatch name="success" value="#16A34A" />
-                <Swatch name="warning" value="#D97706" />
-                <Swatch name="danger" value="#DC2626" />
-                <Swatch name="info" value="#0EA5E9" />
+              <div className="flex flex-wrap items-end gap-3">
+                {SPACING.map((s) => (
+                  <div key={s.px} className="flex flex-col items-center gap-2">
+                    <div className={`w-10 bg-primary/20 ${s.cls}`} />
+                    <span className="text-xs text-muted-foreground">{s.px}px</span>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader title="Typography" description="Clear hierarchy. No oversized headings." />
-            <CardContent className="space-y-3">
-              <p className="text-display font-semibold text-foreground">Display — Page hero only</p>
-              <p className="text-h1 text-foreground">Heading 1</p>
-              <p className="text-h2 text-foreground">Heading 2</p>
-              <p className="text-h3 text-foreground">Heading 3</p>
-              <p className="text-base text-foreground">Body — the default reading size for the app.</p>
-              <p className="text-sm text-muted-foreground">Small — secondary supporting text.</p>
-              <p className="text-caption text-muted-foreground">Caption — metadata and footnotes.</p>
-              <p className="text-label text-foreground">Label — form and control labels.</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader title="Spacing, radius, shadow" />
+          <Card tone="default">
+            <CardHeader title="Radius" />
             <CardContent>
               <div className="flex flex-wrap items-end gap-4">
-                {[1, 2, 3, 4, 6, 8].map((s) => (
-                  <div key={s} className="flex flex-col items-center gap-2">
-                    <div className={`w-10 bg-primary/20 rounded`} style={{ height: `${s * 8}px` }} />
-                    <span className="text-xs text-muted-foreground">{s * 4}px</span>
-                  </div>
-                ))}
-                <Divider orientation="vertical" className="h-16" />
-                {[
-                  { r: "sm", cls: "rounded-sm" },
-                  { r: "md", cls: "rounded-md" },
-                  { r: "lg", cls: "rounded-lg" },
-                  { r: "xl", cls: "rounded-xl" },
-                  { r: "2xl", cls: "rounded-2xl" }
-                ].map(({ r, cls }) => (
+                {RADIUS.map(({ r, cls }) => (
                   <div key={r} className="flex flex-col items-center gap-2">
                     <div className={`h-10 w-10 bg-primary/20 border border-border ${cls}`} />
                     <span className="text-xs text-muted-foreground">r-{r}</span>
@@ -182,166 +256,235 @@ function ShowcaseBody() {
               </div>
             </CardContent>
           </Card>
-        </Section>
-
-        {/* BUTTONS */}
-        <Section id="buttons" title="Buttons">
-          <Demo title="Variants">
-            <Button variant="primary">Primary</Button>
-            <Button variant="secondary">Secondary</Button>
-            <Button variant="outline">Outline</Button>
-            <Button variant="ghost">Ghost</Button>
-            <Button variant="danger">Danger</Button>
-          </Demo>
-          <Demo title="Sizes & icons">
-            <Button size="sm" leftIcon={<Icon name="plus" className="h-4 w-4" />}>Small</Button>
-            <Button size="md" rightIcon={<Icon name="arrow.right" className="h-4 w-4" />}>Medium</Button>
-            <Button size="lg">Large</Button>
-          </Demo>
-          <Demo title="States">
-            <Button loading>Saving</Button>
-            <Button disabled>Disabled</Button>
-            <Button variant="outline" loading>Loading</Button>
-            <IconButton ariaLabel="Add" variant="subtle"><Icon name="plus" className="h-5 w-5" /></IconButton>
-            <IconButton ariaLabel="More"><Icon name="more" className="h-5 w-5" /></IconButton>
-          </Demo>
-          <Demo title="Duplicate-submit guard">
-            <Button
-              loading={loading}
-              onClick={() => {
-                setLoading(true);
-                window.setTimeout(() => setLoading(false), 1500);
-              }}
-            >
-              {loading ? "Submitting…" : "Submit once"}
-            </Button>
-          </Demo>
-        </Section>
-
-        {/* FORMS */}
-        <Section id="forms" title="Form controls">
-          <Card>
-            <CardContent className="grid gap-5 sm:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="f-name" required>Full name</Label>
-                <Input id="f-name" placeholder="e.g. Jordan Mercer" />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="f-email" hint="We'll never share this address.">Email</Label>
-                <Input id="f-email" type="email" placeholder="name@school.edu" invalid={invalid} />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="f-pass">Password</Label>
-                <PasswordInput id="f-pass" placeholder="Enter password" />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="f-role">Role</Label>
-                <Select id="f-role" defaultValue="">
-                  <option value="" disabled>Select a role…</option>
-                  <option value="parent">Parent</option>
-                  <option value="teacher">Teacher</option>
-                  <option value="gate">Gate</option>
-                  <option value="admin">Admin</option>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-2 sm:col-span-2">
-                <Label htmlFor="f-note">Note</Label>
-                <Textarea id="f-note" placeholder="Optional details…" />
-              </div>
-              <div className="flex flex-col gap-3 sm:col-span-2">
-                <Checkbox label="Notify me when a request is approved" defaultChecked />
-                <Checkbox label="Send a daily summary" />
-                <Inline gap={6}>
-                  <Radio name="mode" label="Pickup" defaultChecked />
-                  <Radio name="mode" label="Walker" />
-                  <Radio name="mode" label="Bus" />
-                </Inline>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setInvalid((v) => !v)}
-                >
-                  Toggle invalid state
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </Section>
-
-        {/* FEEDBACK */}
-        <Section id="feedback" title="Feedback">
-          <Card>
-            <CardContent className="space-y-3">
-              <Alert tone="success" title="Saved">Your changes were saved successfully.</Alert>
-              <Alert tone="info" title="Heads up">Pickup window opens at 3:00 PM.</Alert>
-              <Alert tone="warning" title="Almost full">Only 3 spaces remain for today.</Alert>
-              <Alert tone="error" title="Couldn't save">Check the highlighted fields and try again.</Alert>
-            </CardContent>
-          </Card>
-          <Demo title="Toasts">
-            <Button onClick={() => toast.toast({ tone: "success", title: "Request submitted" })}>Success toast</Button>
-            <Button variant="outline" onClick={() => toast.toast({ tone: "error", title: "Action failed", description: "Please retry." })}>Error toast</Button>
-            <Button variant="ghost" onClick={() => toast.toast({ tone: "info", title: "Synced" })}>Info toast</Button>
-          </Demo>
-        </Section>
-
-        {/* SURFACES */}
-        <Section id="surfaces" title="Surfaces & badges">
-          <CardGrid cols="3">
-            <Stat label="Active requests" value={12} hint="Updated just now" />
-            <Stat label="Released today" value={84} trend={{ value: "8%", direction: "up", tone: "success" }} />
-            <Stat label="Pending review" value={3} trend={{ value: "2", direction: "down", tone: "neutral" }} />
-          </CardGrid>
-          <Demo title="Badges">
-            <Badge tone="neutral">Neutral</Badge>
-            <Badge tone="primary" dot>Primary</Badge>
-            <Badge tone="success">Success</Badge>
-            <Badge tone="warning">Warning</Badge>
-            <Badge tone="danger">Danger</Badge>
-            <Badge tone="info">Info</Badge>
-          </Demo>
-          <Demo title="Status badges">
-            <StatusBadge tone="neutral">Idle</StatusBadge>
-            <StatusBadge tone="primary">Processing</StatusBadge>
-            <StatusBadge tone="info">Awaiting</StatusBadge>
-            <StatusBadge tone="success" pulse>Live</StatusBadge>
-            <StatusBadge tone="warning">Delayed</StatusBadge>
-            <StatusBadge tone="danger">Rejected</StatusBadge>
-          </Demo>
-          <Demo title="Avatars">
-            <Avatar name="Jordan Mercer" />
-            <Avatar name="Ada Lovelace" size="lg" />
-            <Avatar name="Grace Hopper" size="sm" />
-            <Avatar name="Staff" size="xs" />
-          </Demo>
-          <Card>
-            <CardHeader title="Card with header, content, footer" action={<Badge tone="primary">New</Badge>} />
+          <Card tone="default">
+            <CardHeader title="Shadow" />
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Cards use one surface language. Borders are subtle; elevation comes from a soft shadow.
-              </p>
-            </CardContent>
-            <CardFooter>
-              <GhostButton size="sm">Cancel</GhostButton>
-              <Button size="sm">Confirm</Button>
-            </CardFooter>
-          </Card>
-          <Card>
-            <CardContent>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">Before</span>
-                <Divider className="flex-1" />
-                <span className="text-sm text-muted-foreground">After</span>
+              <div className="flex flex-wrap items-end gap-4">
+                {SHADOWS.map(({ s, cls }) => (
+                  <div key={s} className="flex flex-col items-center gap-2">
+                    <div className={`h-12 w-12 rounded-lg bg-card ${cls}`} />
+                    <span className="text-xs text-muted-foreground">{s}</span>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
-        </Section>
+        </CardGrid>
+      </Section>
 
-        {/* DATA */}
-        <Section id="data" title="Data display">
-          <Card>
-            <CardHeader title="Table" />
-            <CardContent>
+      {/* BUTTONS */}
+      <Section id="buttons" title="Buttons">
+        <Demo title="Variants">
+          <Button variant="primary">Primary</Button>
+          <Button variant="secondary">Secondary</Button>
+          <Button variant="outline">Outline</Button>
+          <Button variant="ghost">Ghost</Button>
+          <Button variant="danger">Danger</Button>
+        </Demo>
+        <Demo title="Sizes & icons">
+          <Button size="sm" leftIcon={<Icon name="plus" className="h-4 w-4" />}>Small</Button>
+          <Button size="md" rightIcon={<Icon name="arrow.right" className="h-4 w-4" />}>Medium</Button>
+          <Button size="lg">Large</Button>
+        </Demo>
+        <Demo title="States">
+          <Button loading>Saving</Button>
+          <Button disabled>Disabled</Button>
+          <Button variant="outline" loading>Loading</Button>
+          <IconButton ariaLabel="Add" variant="subtle"><Icon name="plus" className="h-5 w-5" /></IconButton>
+          <IconButton ariaLabel="More"><Icon name="more" className="h-5 w-5" /></IconButton>
+        </Demo>
+        <Demo title="Duplicate-submit guard">
+          <Button
+            loading={loading}
+            onClick={() => {
+              setLoading(true);
+              window.setTimeout(() => setLoading(false), 1500);
+            }}
+          >
+            {loading ? "Submitting…" : "Submit once"}
+          </Button>
+        </Demo>
+      </Section>
+
+      {/* FORMS */}
+      <Section id="forms" title="Form controls">
+        <Card tone="default">
+          <CardContent className="grid gap-5 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="f-name" required>Full name</Label>
+              <Input id="f-name" placeholder="e.g. Jordan Mercer" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="f-email" hint="We'll never share this address.">Email</Label>
+              <Input id="f-email" type="email" placeholder="name@school.edu" invalid={invalid} valid={valid} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="f-pass">Password</Label>
+              <PasswordInput id="f-pass" placeholder="Enter password" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="f-role">Role</Label>
+              <Select id="f-role" defaultValue="">
+                <option value="" disabled>Select a role…</option>
+                <option value="parent">Parent</option>
+                <option value="teacher">Teacher</option>
+                <option value="gate">Gate</option>
+                <option value="admin">Admin</option>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2 sm:col-span-2">
+              <Label htmlFor="f-note">Note</Label>
+              <Textarea id="f-note" placeholder="Optional details…" />
+            </div>
+            <div className="flex flex-col gap-3 sm:col-span-2">
+              <Checkbox label="Notify me when a request is approved" defaultChecked />
+              <Checkbox label="Send a daily summary" />
+              <Inline gap={6}>
+                <Radio name="mode" label="Pickup" defaultChecked />
+                <Radio name="mode" label="Walker" />
+                <Radio name="mode" label="Bus" />
+              </Inline>
+              <Inline gap={3}>
+                <Button variant="outline" size="sm" onClick={() => setInvalid((v) => !v)}>Toggle invalid</Button>
+                <Button variant="outline" size="sm" onClick={() => setValid((v) => !v)}>Toggle valid</Button>
+              </Inline>
+            </div>
+          </CardContent>
+        </Card>
+      </Section>
+
+      {/* FEEDBACK */}
+      <Section id="feedback" title="Feedback">
+        <Card tone="default">
+          <CardContent className="space-y-3">
+            <Alert tone="success" title="Saved">Your changes were saved successfully.</Alert>
+            <Alert tone="info" title="Heads up">Pickup window opens at 3:00 PM.</Alert>
+            <Alert tone="warning" title="Almost full">Only 3 spaces remain for today.</Alert>
+            <Alert tone="error" title="Couldn't save">Check the highlighted fields and try again.</Alert>
+          </CardContent>
+        </Card>
+        <Demo title="Toasts">
+          <Button onClick={() => toast.toast({ tone: "success", title: "Request submitted" })}>Success toast</Button>
+          <Button variant="outline" onClick={() => toast.toast({ tone: "error", title: "Action failed", description: "Please retry." })}>Error toast</Button>
+          <Button variant="ghost" onClick={() => toast.toast({ tone: "info", title: "Synced" })}>Info toast</Button>
+        </Demo>
+      </Section>
+
+      {/* SURFACES */}
+      <Section id="surfaces" title="Surfaces & badges">
+        <CardGrid cols="3">
+          <Stat label="Active requests" value={12} hint="Updated just now" />
+          <Stat label="Released today" value={84} trend={{ value: "8%", direction: "up", tone: "success" }} />
+          <Stat label="Pending review" value={3} trend={{ value: "2", direction: "down", tone: "neutral" }} />
+        </CardGrid>
+        <Demo title="Badges">
+          <Badge tone="neutral">Neutral</Badge>
+          <Badge tone="primary" dot>Primary</Badge>
+          <Badge tone="success">Success</Badge>
+          <Badge tone="warning">Warning</Badge>
+          <Badge tone="danger">Danger</Badge>
+          <Badge tone="info">Info</Badge>
+        </Demo>
+        <Demo title="Status badges">
+          <StatusBadge tone="neutral">Idle</StatusBadge>
+          <StatusBadge tone="primary">Processing</StatusBadge>
+          <StatusBadge tone="info">Awaiting</StatusBadge>
+          <StatusBadge tone="success" pulse>Live</StatusBadge>
+          <StatusBadge tone="warning">Delayed</StatusBadge>
+          <StatusBadge tone="danger">Rejected</StatusBadge>
+        </Demo>
+        <Demo title="Avatars">
+          <Avatar name="Jordan Mercer" />
+          <Avatar name="Ada Lovelace" size="lg" />
+          <Avatar name="Grace Hopper" size="sm" />
+          <Avatar name="Staff" size="xs" />
+        </Demo>
+        <CardGrid cols="2">
+          <Card tone="interactive" className="cursor-pointer">
+            <CardHeader title="Interactive card" description="Hover to lift." />
+            <CardContent><p className="text-sm text-muted-foreground">Cards use one surface language. Elevation comes from a soft shadow.</p></CardContent>
+          </Card>
+          <Card tone="selected">
+            <CardHeader title="Selected card" description="Primary ring." />
+            <CardContent><p className="text-sm text-muted-foreground">Used to mark a chosen item.</p></CardContent>
+          </Card>
+          <Card tone="success">
+            <CardHeader title="Success card" />
+            <CardContent><p className="text-sm text-muted-foreground">Positive emphasis.</p></CardContent>
+          </Card>
+          <Card tone="danger">
+            <CardHeader title="Danger card" />
+            <CardContent><p className="text-sm text-muted-foreground">Destructive emphasis.</p></CardContent>
+          </Card>
+          <Card tone="muted">
+            <CardHeader title="Muted card" />
+            <CardContent><p className="text-sm text-muted-foreground">Recessed, low-emphasis surface.</p></CardContent>
+          </Card>
+          <Card tone="soft">
+            <CardHeader title="Soft card" />
+            <CardContent><p className="text-sm text-muted-foreground">Subtle tinted surface.</p></CardContent>
+          </Card>
+        </CardGrid>
+        <Card tone="default">
+          <CardHeader title="Card with header, content, footer" action={<Badge tone="primary">New</Badge>} />
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Borders are subtle; elevation comes from a soft shadow.</p>
+          </CardContent>
+          <CardFooter>
+            <GhostButton size="sm">Cancel</GhostButton>
+            <Button size="sm">Confirm</Button>
+          </CardFooter>
+        </Card>
+        <Card tone="default">
+          <CardContent>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">Before</span>
+              <Divider className="flex-1" />
+              <span className="text-sm text-muted-foreground">After</span>
+            </div>
+          </CardContent>
+        </Card>
+      </Section>
+
+      {/* STATUS — DismissFlow states */}
+      <Section id="status" title="DismissFlow status language">
+        <Card tone="default">
+          <CardHeader
+            title="Dismissal lifecycle states"
+            description="The standard vocabulary used across Gate, Teacher, Parent, and Admin."
+          />
+          <CardContent>
+            <div className="flex flex-wrap gap-3">
+              {DISMISSAL_STATES.map((s) => (
+                <StatusPill key={s} status={s} />
+              ))}
+            </div>
+            <Divider className="my-5" label="raw tones" />
+            <div className="flex flex-wrap gap-3">
+              <StatusBadge tone="neutral">Idle</StatusBadge>
+              <StatusBadge tone="info">Requested</StatusBadge>
+              <StatusBadge tone="info">Awaiting teacher</StatusBadge>
+              <StatusBadge tone="success">Dismissed</StatusBadge>
+              <StatusBadge tone="danger">Rejected</StatusBadge>
+              <StatusBadge tone="neutral">Cancelled</StatusBadge>
+              <StatusBadge tone="neutral">Expired</StatusBadge>
+            </div>
+          </CardContent>
+        </Card>
+        <CardGrid cols="4">
+          <StatCard label="Requested" value={4} accent />
+          <StatCard label="Awaiting teacher" value={2} />
+          <StatCard label="Dismissed" value={31} hint="today" />
+          <StatCard label="Rejected" value={0} />
+        </CardGrid>
+      </Section>
+
+      {/* DATA */}
+      <Section id="data" title="Data display">
+        <Card tone="default">
+          <CardHeader title="Table" />
+          <CardContent>
+            <div className="overflow-x-auto">
               <Table>
                 <thead>
                   <Tr>
@@ -360,127 +503,126 @@ function ShowcaseBody() {
                   ))}
                 </tbody>
               </Table>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader title="DataTable (declarative)" />
-            <CardContent>
-              <DataTable columns={columns} rows={EXAMPLE_ROWS} rowKey={(r) => r.ref} />
-            </CardContent>
-          </Card>
-        </Section>
+            </div>
+          </CardContent>
+        </Card>
+        <Card tone="default">
+          <CardHeader title="DataTable (declarative)" />
+          <CardContent>
+            <DataTable columns={columns} rows={EXAMPLE_ROWS} rowKey={(r) => r.ref} />
+          </CardContent>
+        </Card>
+      </Section>
 
-        {/* OVERLAYS */}
-        <Section id="overlays" title="Overlays & navigation">
-          <Demo title="Modal, Drawer, Dropdown, Tooltip">
-            <Button onClick={() => setModal(true)}>Open modal</Button>
-            <Button variant="outline" onClick={() => setDrawer(true)}>Open drawer</Button>
-            <Dropdown
-              label="Actions"
-              trigger={
-                <span className="inline-flex h-10 items-center gap-2 rounded-md border border-border px-4 text-sm font-medium text-foreground hover:bg-muted">
-                  Menu <Icon name="chevron.down" className="h-4 w-4" />
-                </span>
-              }
+      {/* OVERLAYS */}
+      <Section id="overlays" title="Overlays & navigation">
+        <Demo title="Modal, Drawer, Dropdown, Tooltip">
+          <Button onClick={() => setModal(true)}>Open modal</Button>
+          <Button variant="outline" onClick={() => setDrawer(true)}>Open drawer</Button>
+          <Dropdown
+            label="Actions"
+            trigger={
+              <span className="inline-flex h-10 items-center gap-2 rounded-md border border-border px-4 text-sm font-medium text-foreground hover:bg-muted">
+                Menu <Icon name="chevron.down" className="h-4 w-4" />
+              </span>
+            }
+            items={[
+              { label: "View details", icon: <Icon name="eye" className="h-4 w-4" /> },
+              { label: "Export", icon: <Icon name="download" className="h-4 w-4" /> },
+              { label: "Delete", icon: <Icon name="x" className="h-4 w-4" />, danger: true }
+            ]}
+          />
+          <Tooltip content="Helpful hint on hover or focus">
+            <IconButton ariaLabel="Info"><Icon name="help" className="h-5 w-5" /></IconButton>
+          </Tooltip>
+        </Demo>
+        <Card tone="default">
+          <CardHeader title="Tabs" />
+          <CardContent>
+            <Tabs
               items={[
-                { label: "View details", icon: <Icon name="eye" className="h-4 w-4" /> },
-                { label: "Export", icon: <Icon name="download" className="h-4 w-4" /> },
-                { label: "Delete", icon: <Icon name="x" className="h-4 w-4" />, danger: true }
+                { id: "overview", label: "Overview", content: <p className="text-sm text-muted-foreground">Overview content goes here.</p> },
+                { id: "activity", label: "Activity", content: <p className="text-sm text-muted-foreground">Recent activity timeline.</p> },
+                { id: "settings", label: "Settings", content: <p className="text-sm text-muted-foreground">Configuration options.</p> }
               ]}
             />
-            <Tooltip content="Helpful hint on hover or focus">
-              <IconButton ariaLabel="Info"><Icon name="help" className="h-5 w-5" /></IconButton>
-            </Tooltip>
-          </Demo>
-          <Card>
-            <CardHeader title="Tabs" />
+          </CardContent>
+        </Card>
+      </Section>
+
+      {/* STATES */}
+      <Section id="states" title="Loading & empty & error">
+        <CardGrid cols="3">
+          <Card tone="default">
+            <CardHeader title="Loading" />
+            <CardContent><LoadingState label="Fetching records…" /></CardContent>
+          </Card>
+          <Card tone="default">
+            <CardHeader title="Empty" />
             <CardContent>
-              <Tabs
-                items={[
-                  { id: "overview", label: "Overview", content: <p className="text-sm text-muted-foreground">Overview content goes here.</p> },
-                  { id: "activity", label: "Activity", content: <p className="text-sm text-muted-foreground">Recent activity timeline.</p> },
-                  { id: "settings", label: "Settings", content: <p className="text-sm text-muted-foreground">Configuration options.</p> }
-                ]}
-              />
+              <EmptyState icon="inbox" title="Nothing here yet" description="When records arrive they'll show up here." />
             </CardContent>
           </Card>
-        </Section>
-
-        {/* STATES */}
-        <Section id="states" title="Loading & empty & error">
-          <CardGrid cols="3">
-            <Card>
-              <CardHeader title="Loading" />
-              <CardContent>
-                <LoadingState label="Fetching records…" />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader title="Empty" />
-              <CardContent>
-                <EmptyState icon="inbox" title="Nothing here yet" description="When records arrive they'll show up here." />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader title="Error" />
-              <CardContent>
-                <ErrorState title="Couldn't load" description="The request failed. Try again." action={<Button size="sm">Retry</Button>} />
-              </CardContent>
-            </Card>
-          </CardGrid>
-          <Card>
-            <CardHeader title="Skeletons" />
-            <CardContent className="grid gap-6 sm:grid-cols-2">
-              <Stack gap={3}>
-                <Skeleton className="h-6 w-40" />
-                <SkeletonText lines={3} />
-              </Stack>
-              <div className="space-y-3">
-                <Skeleton className="h-20 w-full rounded-lg" />
-                <Skeleton className="h-20 w-full rounded-lg" />
-              </div>
+          <Card tone="default">
+            <CardHeader title="Error" />
+            <CardContent>
+              <ErrorState title="Couldn't load" description="The request failed. Try again." action={<Button size="sm">Retry</Button>} />
             </CardContent>
           </Card>
-        </Section>
+        </CardGrid>
+        <Card tone="default">
+          <CardHeader title="Skeletons" />
+          <CardContent className="grid gap-6 sm:grid-cols-2">
+            <Stack gap={3}>
+              <Skeleton className="h-6 w-40" />
+              <SkeletonText lines={3} />
+            </Stack>
+            <div className="space-y-3">
+              <Skeleton className="h-20 w-full rounded-lg" />
+              <Skeleton className="h-20 w-full rounded-lg" />
+            </div>
+          </CardContent>
+        </Card>
+      </Section>
 
-        <footer className="pt-4 text-center text-xs text-muted-foreground">
-          DismissFlow foundation — component development surface. Synthetic examples only; no production data.
-        </footer>
-      </Page>
+      <footer className="pt-4 text-center text-xs text-muted-foreground">
+        DismissFlow foundation — component development surface. Synthetic examples only; no production data.
+      </footer>
+    </Page>
 
-      {/* Overlay instances */}
-      <Modal
-        open={modal}
-        onClose={() => setModal(false)}
-        title="Confirm action"
-        description="This is a demonstration modal with focus management."
-        footer={
-          <>
-            <GhostButton onClick={() => setModal(false)}>Cancel</GhostButton>
-            <PrimaryButton onClick={() => setModal(false)}>Confirm</PrimaryButton>
-          </>
-        }
-      >
+    {/* Overlay instances */}
+    <Modal
+      open={modal}
+      onClose={() => setModal(false)}
+      title="Confirm action"
+      description="This is a demonstration modal with focus management."
+      footer={
+        <>
+          <GhostButton onClick={() => setModal(false)}>Cancel</GhostButton>
+          <PrimaryButton onClick={() => setModal(false)}>Confirm</PrimaryButton>
+        </>
+      }
+    >
+      <p className="text-sm text-muted-foreground">
+        Press Escape or click the backdrop to close. Focus is trapped and restored to the trigger on close.
+      </p>
+    </Modal>
+
+    <Drawer
+      open={drawer}
+      onClose={() => setDrawer(false)}
+      title="Details"
+      footer={<Button className="w-full" onClick={() => setDrawer(false)}>Done</Button>}
+    >
+      <Stack gap={4}>
         <p className="text-sm text-muted-foreground">
-          Press Escape or click the backdrop to close. Focus is trapped and restored to the trigger on close.
+          Drawers are ideal for filters, detail panels, and mobile navigation. They slide from the left edge and trap focus.
         </p>
-      </Modal>
-
-      <Drawer
-        open={drawer}
-        onClose={() => setDrawer(false)}
-        title="Details"
-        footer={<Button className="w-full" onClick={() => setDrawer(false)}>Done</Button>}
-      >
-        <Stack gap={4}>
-          <p className="text-sm text-muted-foreground">
-            Drawers are ideal for filters, detail panels, and mobile navigation. They slide from the left edge and trap focus.
-          </p>
-          <Divider />
-          <Label>Example field</Label>
-          <Input placeholder="Type something…" />
-        </Stack>
-      </Drawer>
+        <Divider />
+        <Label>Example field</Label>
+        <Input placeholder="Type something…" />
+      </Stack>
+    </Drawer>
     </>
   );
 }

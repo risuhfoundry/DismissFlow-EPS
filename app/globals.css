@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /*
- * DismissFlow Foundation — global styles.
+ * DismissFlow — global styles.
  * Calm, premium, light. No noise overlays, no cursor glow, no grid lines.
  * Motion is subtle and fully disabled under prefers-reduced-motion.
  */
@@ -12,7 +12,7 @@
   :root {
     --font-sans: var(--font-geist-sans), Inter, system-ui, sans-serif;
     --font-mono: var(--font-geist-mono), ui-monospace, monospace;
-    --radius: 0.625rem;
+    --radius: 0.5rem;
     color-scheme: light;
   }
 
@@ -26,28 +26,27 @@
     font-size: 0.9375rem; /* text-base: calm, readable density */
     line-height: 1.6;
     margin: 0;
-    /* Prevent any accidental horizontal scroll on small screens. */
-    overflow-x: hidden;
+    overflow-x: hidden; /* prevent accidental horizontal scroll on small screens */
   }
 
-  /* Sensible default heading weights — consistent hierarchy, no oversized type. */
+  /* Consistent hierarchy, no oversized type. */
   h1, h2, h3, h4 {
     @apply text-foreground font-semibold tracking-tight;
   }
 
   ::selection {
-    background: rgba(37, 99, 235, 0.16);
-    color: #0f172a;
+    background: rgba(44, 86, 214, 0.16);
+    color: #0e1726;
   }
 
   /* Visible, consistent keyboard focus for every interactive element. */
   :focus-visible {
-    outline: 2px solid #2563eb;
+    outline: 2px solid #2c56d6;
     outline-offset: 2px;
     border-radius: 4px;
   }
 
-  /* Remove the default focus ring only where we provide our own (buttons, inputs). */
+  /* Remove the default ring only where we provide our own (buttons, inputs). */
   button:focus:not(:focus-visible),
   a:focus:not(:focus-visible) {
     outline: none;
@@ -56,34 +55,33 @@
   /* Calm, thin scrollbars that match the surface palette. */
   * {
     scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 transparent;
+    scrollbar-color: #c2cad6 transparent;
   }
   *::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
   *::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
+    background: #c2cad6;
     border-radius: 9999px;
     border: 3px solid transparent;
     background-clip: padding-box;
   }
   *::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+    background: #9aa4b6;
     background-clip: padding-box;
     border: 3px solid transparent;
   }
 }
 
 @layer components {
-  /* A discreet eyebrow/kicker used above section titles. Not mono, not glowing. */
+  /* Discreet eyebrow/kicker above section titles. Not mono, not glowing. */
   .eyebrow {
     @apply text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground;
   }
 }
 
 @layer utilities {
-  /* Screen-reader-only helper for labels/status text. */
   .sr-only {
     position: absolute;
     width: 1px;

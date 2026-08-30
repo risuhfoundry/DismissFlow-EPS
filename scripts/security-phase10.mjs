@@ -1,4 +1,4 @@
-// Phase 10 — SECURITY tests for the Teacher portal.
+﻿// Phase 10 — SECURITY tests for the Teacher portal.
 //
 // Every check below uses a REAL authenticated Supabase client (anon key + real
 // role JWT) — the exact path the browser uses. No service-role key. We assert
@@ -11,8 +11,8 @@ import { createClient } from "@supabase/supabase-js";
 const URL = "https://dmxqqvlnbwzkqfceyuot.supabase.co";
 const ANON =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRteHFxdmxuYnd6a3FmY2V5dW90Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3OTk1MzUsImV4cCI6MjEwMzM3NTUzNX0.osCtD4y-u2-pmBWb3JZUMhPGalkKM5GiOcrc0ru825U";
-const TEACHER_PW = "E2eTest123!";
-const GATE_PW = "E2eTest123!";
+const TEACHER_PW = "process.env.E2E_STAFF_PASSWORD ?? "E2eTest123!"";
+const GATE_PW = "process.env.E2E_STAFF_PASSWORD ?? "E2eTest123!"";
 
 const OWN_DISMISSED = "280ad324-2d02-4155-8b36-ca95b9d5b49c"; // 041, DISMISSED
 const OTHER_REJECTED = "5c3c5cb4-10c7-4175-933f-0b958bedbe2f"; // 5767, REJECTED

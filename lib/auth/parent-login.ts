@@ -1,23 +1,21 @@
 "use client";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { loginIdToEmail } from "@/lib/auth/role-login";
 
-// Demo-only parent authentication (PRD §12).
+// Per-person parent authentication (Phase 17).
 //
 // The parent Auth account's email is DERIVED from the admission number the parent
 // already knows — it is never hardcoded student data. The admission number the
-// parent types at login time becomes the email local-part via a deterministic
-// demo-domain mapping. No student name, UUID, or credential is stored here.
+// parent types at login time becomes the email local-part via the same unified
+// login_id → email mapping every role uses (see lib/auth/role-login.ts). No
+// student name, UUID, or credential is stored here.
 //
-// The domain is configuration (env-overridable) so it is not a hardcoded
-// production value. The PRD's demo shortcut (admission number used as the
-// password) is applied by the provisioning script when it creates the account;
-// this module only maps the identifier.
-const DEMO_EMAIL_DOMAIN =
-  process.env.NEXT_PUBLIC_DEMO_EMAIL_DOMAIN ?? "demo.dismissflow";
-
+// The PRD's product requirement (admission number used as the password) is
+// applied by the provisioning script when it creates the account; this module
+// only maps the identifier.
 export function admissionToEmail(admissionNo: string): string {
-  return `${admissionNo.trim()}@${DEMO_EMAIL_DOMAIN}`;
+  return loginIdToEmail(admissionNo);
 }
 
 // Signs a parent in through REAL Supabase Auth. Returns the auth result so the

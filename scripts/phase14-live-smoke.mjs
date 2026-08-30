@@ -4,9 +4,20 @@
 // Uses REAL anon-key clients + real role JWTs (the browser path). No service role.
 import { createClient } from "@supabase/supabase-js";
 
-const URL = "https://dmxqqvlnbwzkqfceyuot.supabase.co";
+// Phase 17: credentials are env-parameterized. Defaults point at the live
+// per-person pilot identities (parent 041, gate GTE-1001, teacher TCH-1001).
+const URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://dmxqqvlnbwzkqfceyuot.supabase.co";
 const ANON =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRteHFxdmxuYnd6a3FmY2V5dW90Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3OTk1MzUsImV4cCI6MjEwMzM3NTUzNX0.osCtD4y-u2-pmBWb3JZUMhPGalkKM5GiOcrc0ru825U";
+const DOMAIN = process.env.NEXT_PUBLIC_DEMO_EMAIL_DOMAIN || "demo.dismissflow";
+const EMAIL = (id) => `${id}@${DOMAIN}`;
+const PARENT_LOGIN = process.env.E2E_PARENT_LOGIN ?? "041";
+const PARENT_PW = process.env.E2E_PARENT_PASSWORD ?? PARENT_LOGIN;
+const GATE_EMAIL = process.env.E2E_GATE_EMAIL ?? EMAIL("gte-1001");
+const GATE_PW = process.env.E2E_GATE_PASSWORD ?? process.env.E2E_STAFF_PASSWORD ?? "GTE-1001";
+const TEACHER_EMAIL = process.env.E2E_TEACHER_EMAIL ?? EMAIL("tch-1001");
+const TEACHER_PW = process.env.E2E_TEACHER_PASSWORD ?? process.env.E2E_STAFF_PASSWORD ?? "TCH-1001";
 
 const mk = () =>
   createClient(URL, ANON, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -32,11 +43,11 @@ const check = (name, ok, detail) => {
 };
 
 const parent = mk();
-await parent.auth.signInWithPassword({ email: "041@demo.dismissflow", password: "041" });
+await parent.auth.signInWithPassword({ email: EMAIL(PARENT_LOGIN), password: PARENT_PW });
 const gate = mk();
-await gate.auth.signInWithPassword({ email: "gate@demo.dismissflow", password: "E2eTest123!" });
+await gate.auth.signInWithPassword({ email: GATE_EMAIL, password: GATE_PW });
 const teacher = mk();
-await teacher.auth.signInWithPassword({ email: "teacher@demo.dismissflow", password: "E2eTest123!" });
+await teacher.auth.signInWithPassword({ email: TEACHER_EMAIL, password: TEACHER_PW });
 
 // 1. Parent create
 const created = await invoke(parent, "create-dismissal-request", {});

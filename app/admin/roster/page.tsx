@@ -12,6 +12,7 @@ import { LoadingState, EmptyState } from "@/components/ui/StateBlock";
 import { Table, Th, Td } from "@/components/ui/Table";
 import { Input } from "@/components/ui/Input";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getSessionUser } from "@/lib/auth/session";
 
 const NAV_LINKS = [
   { label: "Overview", href: "/admin" },
@@ -46,11 +47,9 @@ export default function AdminRosterPage() {
     let cancelled = false;
     (async () => {
       try {
-        const {
-          data: { user }
-        } = await supabase.auth.getUser();
-        if (!user) {
-          setAuthNote("Sign in at /login/admin to view the roster.");
+        const sessionUser = await getSessionUser(supabase);
+        if (!sessionUser || sessionUser.role !== "admin") {
+          setAuthNote("Sign in as an admin to view the roster.");
           setLoading(false);
           return;
         }

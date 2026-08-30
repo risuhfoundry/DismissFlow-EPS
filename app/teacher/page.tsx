@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Icon } from "@/components/ui/Icon";
@@ -46,6 +46,15 @@ export default function TeacherQueuePage() {
   const supabase = getSupabaseBrowserClient();
   const [rows, setRows] = useState<QueueRow[]>([]);
   const [students, setStudents] = useState<Record<string, StudentLite>>({});
+  // Mirror of `students` for use inside the realtime handler. Reading `students`
+  // directly would force the handler (and the useTableChanges subscription) to
+  // be recreated whenever the map changes — thrashing the realtime channel and
+  // opening a window where dismissal events are missed. The ref is kept in sync
+  // via the effect below so the handler can stay stable (deps: [supabase]).
+  const studentsRef = useRef<Record<string, StudentLite>>({});
+  useEffect(() => {
+    studentsRef.current = students;
+  }, [students]);
   const [classMeta, setClassMeta] = useState<{ name: string; section: string }>({ name: "", section: "" });
   const [authNote, setAuthNote] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -115,7 +124,9 @@ export default function TeacherQueuePage() {
         }
         return next;
       });
-      if (row.student_id && !students[row.student_id]) {
+      // Read the latest student map from the ref (not closure state) so this
+      // handler stays stable and the realtime subscription is never re-created.
+      if (row.student_id && !studentsRef.current[row.student_id]) {
         const { data: stu } = await supabase
           .from("students")
           .select("student_id, name, admission_no")
@@ -129,7 +140,7 @@ export default function TeacherQueuePage() {
         }
       }
     },
-    [supabase, students]
+    [supabase]
   );
 
   useTableChanges<QueueRow>(supabase, "dismissal_requests", "*", handleChange);

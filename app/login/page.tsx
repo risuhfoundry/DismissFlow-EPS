@@ -101,7 +101,7 @@ export default function LoginPage() {
                     inputMode="text"
                     autoComplete="username"
                     value={admission}
-                    onChange={(e) => setAdmission(e.target.value)}
+                    onChange={(e) => { setAdmission(e.target.value); setError(null); }}
                     placeholder="e.g. 040"
                     invalid={!!error}
                     aria-describedby={error ? errorId : undefined}
@@ -119,7 +119,7 @@ export default function LoginPage() {
                     type="password"
                     autoComplete="current-password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => { setPassword(e.target.value); setError(null); }}
                     placeholder="demo password"
                     invalid={!!error}
                     aria-describedby={error ? errorId : undefined}

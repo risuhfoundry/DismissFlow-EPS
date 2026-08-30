@@ -1,4 +1,4 @@
-// Phase 11 — REALTIME synchronization E2E + security tests.
+﻿// Phase 11 — REALTIME synchronization E2E + security tests.
 //
 // Drives the REAL Supabase Realtime stream with REAL authenticated clients
 // (anon/publishable key + role JWTs). We cannot run a browser here, so each
@@ -18,8 +18,8 @@ import { createClient } from "@supabase/supabase-js";
 const URL = "https://dmxqqvlnbwzkqfceyuot.supabase.co";
 const ANON =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRteHFxdmxuYnd6a3FmY2V5dW90Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3OTk1MzUsImV4cCI6MjEwMzM3NTUzNX0.osCtD4y-u2-pmBWb3JZUMhPGalkKM5GiOcrc0ru825U";
-const TEACHER_PW = "E2eTest123!";
-const GATE_PW = "E2eTest123!";
+const TEACHER_PW = "process.env.E2E_STAFF_PASSWORD ?? "E2eTest123!"";
+const GATE_PW = "process.env.E2E_STAFF_PASSWORD ?? "E2eTest123!"";
 
 const mk = () =>
   createClient(URL, ANON, {

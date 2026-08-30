@@ -105,10 +105,12 @@ serve(async (req: Request) => {
     return errorResponse("Unauthenticated", "UNAUTHENTICATED", 401, origin);
   }
 
-  // 2. Application profile exists + explicit role check.
+  // 2. Application profile exists + explicit role check. The parent's school is
+  //    derived server-side (never from the client) and propagated onto the
+  //    request so every tenant-scoped row carries its owning school.
   const { data: profile, error: pErr } = await supabase
     .from("users")
-    .select("user_id, role, linked_student_id")
+    .select("user_id, role, linked_student_id, school_id")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -169,6 +171,7 @@ serve(async (req: Request) => {
     .insert({
       student_id: studentId,
       guardian_id: null,
+      school_id: profile.school_id,
       status: "REQUESTED",
       expires_at: expiresAt
     })

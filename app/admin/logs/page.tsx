@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { AccessNote } from "@/components/ui/AccessNote";
 import { LoadingState, EmptyState } from "@/components/ui/StateBlock";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getSessionUser } from "@/lib/auth/session";
 import { useRealtimeStatus } from "@/lib/realtime/subs";
 import type { DismissalStatus } from "@/lib/dismissal/state";
 
@@ -60,11 +61,9 @@ export default function AdminLogsPage() {
     let cancelled = false;
     (async () => {
       try {
-        const {
-          data: { user }
-        } = await supabase.auth.getUser();
-        if (!user) {
-          setAuthNote("Sign in at /login/admin to view the audit log.");
+        const sessionUser = await getSessionUser(supabase);
+        if (!sessionUser || sessionUser.role !== "admin") {
+          setAuthNote("Sign in as an admin to view the audit log.");
           setLoading(false);
           return;
         }

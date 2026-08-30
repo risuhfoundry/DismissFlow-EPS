@@ -1,4 +1,4 @@
-// Phase 13 — SECURITY / AUTHORIZATION MATRIX (RLS × roles, RPC EXECUTE denial,
+﻿// Phase 13 — SECURITY / AUTHORIZATION MATRIX (RLS × roles, RPC EXECUTE denial,
 // Edge Function auth, CORS, QR token non-readability, class scoping, expiry).
 //
 // Every check uses a REAL authenticated Supabase client (public anon key + a real
@@ -15,9 +15,9 @@ const URL = "https://dmxqqvlnbwzkqfceyuot.supabase.co";
 const ANON =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRteHFxdmxuYnd6a3FmY2V5dW90Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3OTk1MzUsImV4cCI6MjEwMzM3NTUzNX0.osCtD4y-u2-pmBWb3JZUMhPGalkKM5GiOcrc0ru825U";
 
-const ADMIN_PW = "E2eTest123!";
-const TEACHER_PW = "E2eTest123!";
-const GATE_PW = "E2eTest123!";
+const ADMIN_PW = "process.env.E2E_STAFF_PASSWORD ?? "E2eTest123!"";
+const TEACHER_PW = "process.env.E2E_STAFF_PASSWORD ?? "E2eTest123!"";
+const GATE_PW = "process.env.E2E_STAFF_PASSWORD ?? "E2eTest123!"";
 const PARENT_041_PW = "041";
 const PARENT_5767_PW = "5767";
 const TEMP_TEACHER_EMAIL = "phase13temp@demo.dismissflow";

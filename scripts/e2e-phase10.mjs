@@ -1,4 +1,4 @@
-// Phase 10 — REAL end-to-end test of the Teacher approve/reject flow.
+﻿// Phase 10 — REAL end-to-end test of the Teacher approve/reject flow.
 //
 // Drives the ACTUAL Edge Functions (create-dismissal-request, scan-qr,
 // approve-dismissal, reject-dismissal) with REAL Supabase Auth JWTs for the
@@ -12,8 +12,8 @@ import { createClient } from "@supabase/supabase-js";
 const URL = "https://dmxqqvlnbwzkqfceyuot.supabase.co";
 const ANON =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRteHFxdmxuYnd6a3FmY2V5dW90Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3OTk1MzUsImV4cCI6MjEwMzM3NTUzNX0.osCtD4y-u2-pmBWb3JZUMhPGalkKM5GiOcrc0ru825U";
-const TEACHER_PW = "E2eTest123!";
-const GATE_PW = "E2eTest123!";
+const TEACHER_PW = "process.env.E2E_STAFF_PASSWORD ?? "E2eTest123!"";
+const GATE_PW = "process.env.E2E_STAFF_PASSWORD ?? "E2eTest123!"";
 
 const mk = () =>
   createClient(URL, ANON, {

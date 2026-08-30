@@ -159,6 +159,24 @@ export function mapRpcDecision(
         code: "TEACHER_CLASS_FORBIDDEN",
         message: "You are not authorized for this class."
       };
+    case "TEACHER_SCHOOL_FORBIDDEN":
+      // Phase 17: cross-school decision attempt. Mapped so the teacher UI shows a
+      // precise 403 rather than a generic 500 — the request must not leak
+      // cross-tenant.
+      return {
+        ok: false,
+        status: 403,
+        code: "TEACHER_SCHOOL_FORBIDDEN",
+        message: "This request belongs to another school."
+      };
+    case "PARENT_SCHOOL_FORBIDDEN":
+      // Phase 17: cross-school cancel attempt (parent cancel flow reuses this map).
+      return {
+        ok: false,
+        status: 403,
+        code: "PARENT_SCHOOL_FORBIDDEN",
+        message: "This request belongs to another school."
+      };
     case "REQUEST_NOT_FOUND":
       return {
         ok: false,
@@ -212,6 +230,10 @@ export function mapDecisionError(message: string): DecisionFailure {
       return { ok: false, status: 403, code: "TEACHER_REQUIRED", message: "Teacher role required." };
     case "TEACHER_CLASS_FORBIDDEN":
       return { ok: false, status: 403, code: "TEACHER_CLASS_FORBIDDEN", message: "You are not authorized for this class." };
+    case "TEACHER_SCHOOL_FORBIDDEN":
+      return { ok: false, status: 403, code: "TEACHER_SCHOOL_FORBIDDEN", message: "This request belongs to another school." };
+    case "PARENT_SCHOOL_FORBIDDEN":
+      return { ok: false, status: 403, code: "PARENT_SCHOOL_FORBIDDEN", message: "This request belongs to another school." };
     case "REQUEST_NOT_FOUND":
       return { ok: false, status: 404, code: "REQUEST_NOT_FOUND", message: "Request not found." };
     case "REQUEST_NOT_AWAITING_TEACHER":

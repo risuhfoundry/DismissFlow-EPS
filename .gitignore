@@ -15,3 +15,5 @@ _p5_auth.mjs
 _root.html
 opencode.json
 dev*.log
+.vercel
+.env*

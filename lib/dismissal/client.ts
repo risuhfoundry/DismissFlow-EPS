@@ -126,3 +126,26 @@ export async function rejectDismissal(requestId: string) {
   if (error) throw await parseError(error);
   return data!;
 }
+
+// Phase 17 — real identity lifecycle. Delegates to the manage-identity Edge
+// Function (service role). The browser only sends the action + target; role,
+// school, student, and class are derived server-side and confined to the caller's
+// own school. Returns the one-time plaintext_password on create/reset.
+export type IdentityResult = {
+  ok: boolean;
+  plaintext_password?: string;
+  [key: string]: unknown;
+};
+
+export async function manageIdentity(
+  action: string,
+  body: Record<string, unknown>
+): Promise<IdentityResult> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.functions.invoke<IdentityResult>(
+    "manage-identity",
+    { method: "POST", body: { action, ...body } }
+  );
+  if (error) throw await parseError(error);
+  return data!;
+}

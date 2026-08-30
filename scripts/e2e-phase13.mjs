@@ -1,4 +1,4 @@
-// Phase 13 — FULL SYSTEM E2E + HOSTILE BODY + CONCURRENCY + CANCELLATION.
+﻿// Phase 13 — FULL SYSTEM E2E + HOSTILE BODY + CONCURRENCY + CANCELLATION.
 //
 // Every transition is driven through the REAL deployed Edge Functions using REAL
 // role JWTs (public anon key only — the exact browser path). No service-role
@@ -14,9 +14,9 @@ const URL = "https://dmxqqvlnbwzkqfceyuot.supabase.co";
 const ANON =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRteHFxdmxuYnd6a3FmY2V5dW90Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3OTk1MzUsImV4cCI6MjEwMzM3NTUzNX0.osCtD4y-u2-pmBWb3JZUMhPGalkKM5GiOcrc0ru825U";
 
-const ADMIN_PW = "E2eTest123!";
-const TEACHER_PW = "E2eTest123!";
-const GATE_PW = "E2eTest123!";
+const ADMIN_PW = "process.env.E2E_STAFF_PASSWORD ?? "E2eTest123!"";
+const TEACHER_PW = "process.env.E2E_STAFF_PASSWORD ?? "E2eTest123!"";
+const GATE_PW = "process.env.E2E_STAFF_PASSWORD ?? "E2eTest123!"";
 const PARENT_041_PW = "041";
 const PARENT_5767_PW = "5767";
 

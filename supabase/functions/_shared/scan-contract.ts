@@ -81,6 +81,11 @@ export function mapRpcResult(row: ScanRpcRow): ScanOutcome {
       return { ok: false, status: 410, code: "QR_EXPIRED", message: "This QR code has expired." };
     case "REQUEST_NOT_SCANNABLE":
       return { ok: false, status: 409, code: "REQUEST_NOT_SCANNABLE", message: "This request is not scannable." };
+    case "GATE_SCHOOL_FORBIDDEN":
+      // Phase 17: cross-school scan attempt. Returned as a row (not raised) by the
+      // consume_qr_scan RPC; mapped here so the gate UI shows a precise 403 rather
+      // than a generic 500 — the request must not leak cross-tenant.
+      return { ok: false, status: 403, code: "GATE_SCHOOL_FORBIDDEN", message: "This request belongs to another school." };
     default:
       return { ok: false, status: 500, code: "INTERNAL_ERROR", message: "Unexpected scan result." };
   }
@@ -90,6 +95,9 @@ export function mapRpcResult(row: ScanRpcRow): ScanOutcome {
 export function mapRpcError(message: string): ScanFailure {
   if (message === "REQUEST_NOT_SCANNABLE") {
     return { ok: false, status: 409, code: "REQUEST_NOT_SCANNABLE", message: "This request is not scannable." };
+  }
+  if (message === "GATE_SCHOOL_FORBIDDEN") {
+    return { ok: false, status: 403, code: "GATE_SCHOOL_FORBIDDEN", message: "This request belongs to another school." };
   }
   return { ok: false, status: 500, code: "INTERNAL_ERROR", message: "Scan failed." };
 }

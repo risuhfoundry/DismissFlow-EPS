@@ -61,15 +61,23 @@ function loginIdToEmail(loginId) {
   return `${loginId.trim().toLowerCase()}@${DEMO_EMAIL_DOMAIN}`;
 }
 
-// Per-staff login_id assignments for the pilot's three shared accounts.
+// Canonical per-person login identifiers for the pilot's three staff accounts.
+// Stored and provisioned in LOWERCASE so the credential the user types
+// ("gte-1001") matches the Auth password exactly. The frontend lowercases the
+// entered ID when deriving the Auth email, so lowercasing here keeps the email,
+// the stored login_id, and the Auth password in agreement — avoiding a
+// case-sensitive mismatch at sign-in (Supabase Auth passwords are case-sensitive).
 const STAFF = [
-  { role: "teacher", login_id: "TCH-1001" },
-  { role: "gate", login_id: "GTE-1001" },
-  { role: "admin", login_id: "ADM-1001" }
+  { role: "teacher", login_id: "tch-1001" },
+  { role: "gate", login_id: "gte-1001" },
+  { role: "admin", login_id: "adm-1001" }
 ];
 
 async function main() {
   for (const { role, login_id } of STAFF) {
+    const normalized = login_id.trim().toLowerCase();
+    const email = loginIdToEmail(normalized); // e.g. gte-1001@<domain>
+
     const { data: profile, error: pErr } = await supabase
       .from("users")
       .select("user_id, role, login_id, assigned_class_id")
@@ -81,25 +89,26 @@ async function main() {
       console.log(`- ${role}: no public.users row found, skipping.`);
       continue;
     }
-    if (profile.login_id) {
-      console.log(`- ${role}: already per-person (login_id=${profile.login_id}), skipping.`);
-      continue;
-    }
 
-    const email = loginIdToEmail(login_id);
-    // Re-key the linked Auth account to the per-person email + password.
+    // Re-apply the per-person Auth identity every run (idempotent and safe):
+    // the email and password (password = normalized login_id) are derived from
+    // the person, never hardcoded. This guarantees the live credential always
+    // matches the lifecycle, even if a prior run left it inconsistent.
     const { error: updErr } = await supabase.auth.admin.updateUserById(profile.user_id, {
       email,
-      password: login_id,
+      password: normalized,
       email_confirm: true
     });
     if (updErr) throw new Error(`updateAuth ${role}: ${updErr.message}`);
 
-    const { error: profErr } = await supabase
-      .from("users")
-      .update({ login_id })
-      .eq("user_id", profile.user_id);
-    if (profErr) throw new Error(`updateProfile ${role}: ${profErr.message}`);
+    // Keep the stored login_id in canonical lowercase form.
+    if (profile.login_id !== normalized) {
+      const { error: profErr } = await supabase
+        .from("users")
+        .update({ login_id: normalized })
+        .eq("user_id", profile.user_id);
+      if (profErr) throw new Error(`updateProfile ${role}: ${profErr.message}`);
+    }
 
     // For teacher, ensure the class is wired (idempotent).
     if (role === "teacher" && !profile.assigned_class_id) {
@@ -114,7 +123,7 @@ async function main() {
       }
     }
 
-    console.log(`✓ ${role}: per-person identity created -> login_id=${login_id} (password = login_id)`);
+    console.log(`✓ ${role}: per-person identity confirmed -> login_id=${normalized} (password = login_id)`);
   }
   console.log("\nDone. Staff now sign in per-person at /login/[role] with their ID and password.");
 }

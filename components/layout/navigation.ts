@@ -38,8 +38,8 @@ export function getNavForRole(role: Role): NavConfig {
       return [
         {
           items: [
-            { label: "Overview", href: "/parent", icon: "home" },
-            { label: "Requests", href: "/parent/history", icon: "history" },
+            { label: "Home", href: "/parent", icon: "home" },
+            { label: "History", href: "/parent/history", icon: "history" },
             { label: "Profile", href: "/parent/profile", icon: "user" }
           ]
         }

@@ -2,28 +2,28 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Icon } from "@/components/ui/Icon";
-import { MonoLabel } from "@/components/ui/MonoLabel";
-import { Panel } from "@/components/ui/Panel";
-import { PrimaryButton, SecondaryButton } from "@/components/ui/Button";
-import { StatusPill } from "@/components/ui/StatusPill";
-import { StatusIndicator } from "@/components/ui/StatusIndicator";
-import { TopNav } from "@/components/ui/TopNav";
+import { Button } from "@/components/ui/Button";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/Card";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Alert } from "@/components/ui/Alert";
-import { AccessNote } from "@/components/ui/AccessNote";
-import type { DismissalStatus } from "@/lib/dismissal/state";
+import { Modal } from "@/components/ui/Modal";
+import { Icon } from "@/components/ui/Icon";
+import { Avatar } from "@/components/ui/Avatar";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { Page, Section } from "@/components/layout/Page";
+import { DismissalQr } from "@/lib/qr/generate";
 import { getSessionUser } from "@/lib/auth/session";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { DismissalQr } from "@/lib/qr/generate";
 import { useRealtimeStatus, useTableChanges } from "@/lib/realtime/subs";
 import { cancelDismissal, createDismissalRequest } from "@/lib/dismissal/client";
-
-const NAV_LINKS = [
-  { label: "Dashboard", href: "/parent" },
-  { label: "History", href: "/parent/history" },
-  { label: "Profile", href: "/parent/profile" }
-];
+import { dismissalStatusMeta } from "@/lib/dismissal/status-meta";
+import type { DismissalStatus } from "@/lib/dismissal/state";
 
 type StudentView = {
   name: string;
@@ -37,6 +37,12 @@ type RequestRow = {
   status: DismissalStatus;
   expires_at: string | null;
   student_id: string;
+};
+
+type AuthNote = {
+  message: string;
+  tone: "info" | "warning";
+  cta: "signin" | "home";
 };
 
 function useCountdown(expiresAt: Date | null) {
@@ -56,34 +62,185 @@ function useCountdown(expiresAt: Date | null) {
   }, [expiresAt, now]);
 }
 
-function Eyebrow() {
+function greetingFor(d: Date): string {
+  const h = d.getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+// ---- Presentational pieces (pure, prop-driven — no backend knowledge) ----
+
+function ChildCard({ student }: { student: StudentView }) {
   return (
-    <span className="eyebrow">
-      <i />
-      01 / PARENT PORTAL{" "}
-      <span className="ml-1 px-1.5 py-0.5 border border-line text-mono-xs">
-        V0.1
-      </span>
-    </span>
+    <Card className="animate-fade-in">
+      <CardContent className="flex items-center gap-4 py-5">
+        <Avatar name={student.name} size="lg" />
+        <div className="min-w-0">
+          <p className="text-h3 font-semibold text-foreground">{student.name}</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Admission {student.admissionNo}
+          </p>
+        </div>
+      </CardContent>
+      <div className="grid grid-cols-2 divide-x divide-border border-t border-border sm:grid-cols-3">
+        <div className="px-5 py-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Class
+          </p>
+          <p className="mt-1 text-sm font-medium text-foreground">
+            {student.className}
+          </p>
+        </div>
+        <div className="px-5 py-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Section
+          </p>
+          <p className="mt-1 text-sm font-medium text-foreground">
+            {student.section}
+          </p>
+        </div>
+        <div className="col-span-2 px-5 py-4 sm:col-span-1">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Admission no.
+          </p>
+          <p className="mt-1 text-sm font-medium text-foreground tabular-nums">
+            {student.admissionNo}
+          </p>
+        </div>
+      </div>
+    </Card>
   );
 }
 
-function Spec({ label, value }: { label: string; value: string }) {
+function IdlePanel({
+  onRequest,
+  requesting,
+  error
+}: {
+  onRequest: () => void;
+  requesting: boolean;
+  error: string | null;
+}) {
   return (
-    <div className="hairline bg-ink px-2.5 py-1 flex items-center gap-2">
-      <MonoLabel size="xs" tone="muted">
-        {label}
-      </MonoLabel>
-      <span className="font-mono text-mono-sm text-bone uppercase tracking-wider">
-        {value}
-      </span>
+    <Card className="animate-fade-in">
+      <CardContent className="flex flex-col gap-4 py-6">
+        <div className="flex items-start gap-4">
+          <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
+            <Icon name="walk" className="h-5 w-5" strokeWidth={2} />
+          </span>
+          <div>
+            <h3 className="text-title font-semibold text-foreground">
+              Ready for pickup?
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Generate a secure dismissal code for gate staff when you arrive to
+              collect your child.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Button
+            size="lg"
+            onClick={onRequest}
+            disabled={requesting}
+            loading={requesting}
+            leftIcon={<Icon name="walk" className="h-4 w-4" strokeWidth={2} />}
+          >
+            Request dismissal
+          </Button>
+          {error && (
+            <Alert tone="error" className="flex-1">
+              {error}
+            </Alert>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function QrPanel({ token, countdown }: { token: string; countdown: string }) {
+  const expiringSoon = countdown.startsWith("00:0");
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <div className="w-full max-w-[260px] rounded-xl border border-border bg-card p-4">
+        <div className="aspect-square w-full">
+          <DismissalQr token={token} />
+        </div>
+      </div>
+      <p className="text-center text-sm text-muted-foreground">
+        Present this code to gate staff when you arrive. It is single-use and
+        valid only for this pickup.
+      </p>
+      {countdown !== "—" && (
+        <p
+          className={
+            "inline-flex items-center gap-1.5 text-sm font-medium " +
+            (expiringSoon ? "text-warning" : "text-muted-foreground")
+          }
+        >
+          <Icon name="timer" className="h-4 w-4" />
+          Expires in {countdown}
+        </p>
+      )}
+      <p className="text-center text-xs text-muted-foreground">
+        This timer is a guide only — the school system confirms when your code is
+        used.
+      </p>
     </div>
   );
 }
 
-// Final outcome (DISMISSED / REJECTED / CANCELLED / EXPIRED). Gives the parent
-// clear closure instead of silently returning to the "Request Dismissal" button.
-function OutcomeCard({
+function ActivePanel({
+  status,
+  qrToken,
+  countdown,
+  onCancel,
+  cancelling
+}: {
+  status: DismissalStatus;
+  qrToken: string | null;
+  countdown: string;
+  onCancel: () => void;
+  cancelling: boolean;
+}) {
+  const meta = dismissalStatusMeta(status);
+  return (
+    <Card tone="soft" className="animate-fade-in">
+      <CardHeader
+        title="Pickup in progress"
+        description={meta.next}
+        action={<StatusBadge tone={meta.tone} pulse>{meta.label}</StatusBadge>}
+      />
+      <CardContent className="flex flex-col gap-5 py-6">
+        {qrToken ? (
+          <QrPanel token={qrToken} countdown={countdown} />
+        ) : (
+          <Alert tone="info">
+            Your code was generated when you requested this pickup. If you need
+            to show it again, cancel and request a new one.
+          </Alert>
+        )}
+      </CardContent>
+      {status === "REQUESTED" && (
+        <CardFooter>
+          <Button
+            variant="outline"
+            onClick={onCancel}
+            disabled={cancelling}
+            loading={cancelling}
+            leftIcon={<Icon name="x" className="h-4 w-4" strokeWidth={2} />}
+          >
+            Cancel request
+          </Button>
+        </CardFooter>
+      )}
+    </Card>
+  );
+}
+
+function OutcomePanel({
   status,
   onRequest,
   requesting
@@ -94,174 +251,128 @@ function OutcomeCard({
 }) {
   const copy: Record<
     string,
-    { icon: "check" | "x" | "timer"; tone: "success" | "danger" | "warn" | "muted"; title: string; detail: string }
+    {
+      icon: "check" | "x" | "timer";
+      tone: "success" | "danger" | "warning" | "neutral";
+      cardTone: "success" | "danger" | "muted" | "soft";
+      title: string;
+      detail: string;
+    }
   > = {
     DISMISSED: {
       icon: "check",
       tone: "success",
-      title: "Student Dismissed",
+      cardTone: "success",
+      title: "Dismissal completed.",
       detail: "Your child has been released. The teacher confirmed the pickup."
     },
     REJECTED: {
       icon: "x",
       tone: "danger",
-      title: "Request Rejected",
-      detail: "The teacher could not approve this pickup. Contact the school if you believe this was in error."
+      cardTone: "danger",
+      title: "Request rejected.",
+      detail:
+        "The teacher could not approve this pickup. Contact the school if you believe this was in error."
     },
     CANCELLED: {
       icon: "x",
-      tone: "muted",
-      title: "Request Cancelled",
-      detail: "You cancelled this request. You can start a new one at any time."
+      tone: "neutral",
+      cardTone: "muted",
+      title: "Request cancelled.",
+      detail:
+        "You cancelled this request. You can start a new one whenever you need a pickup."
     },
     EXPIRED: {
       icon: "timer",
-      tone: "warn",
-      title: "Request Expired",
-      detail: "The QR code timed out before it was used. Generate a new request to try again."
+      tone: "warning",
+      cardTone: "soft",
+      title: "Request expired.",
+      detail:
+        "The code was not used in time and has expired. Generate a new request to try again."
     }
   };
   const c = copy[status];
   if (!c) return null;
-  const ring =
-    c.tone === "success"
-      ? "text-success"
-      : c.tone === "danger"
-      ? "text-danger"
-      : c.tone === "warn"
-      ? "text-warn"
-      : "text-muted";
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="flex flex-col items-center text-center gap-4 py-4"
-    >
-      <span
-        className={`h-14 w-14 rounded-full hairline flex items-center justify-center ${ring}`}
-      >
-        <Icon name={c.icon} className="h-7 w-7" strokeWidth={2} />
-      </span>
-      <div>
-        <h3 className={`font-display text-3xl uppercase leading-none ${ring}`}>
-          {c.title}
-        </h3>
-        <p className="mt-3 max-w-sm text-muted leading-relaxed mx-auto">
-          {c.detail}
-        </p>
-      </div>
-      <PrimaryButton onClick={onRequest} disabled={requesting} loading={requesting}>
-        <Icon name="walk" className="h-4 w-4" strokeWidth={2} />
-        Request Dismissal
-      </PrimaryButton>
-    </motion.div>
+    <Card tone={c.cardTone} className="animate-fade-in">
+      <CardContent className="flex flex-col items-center gap-4 py-8 text-center">
+        <span
+          className={
+            "inline-flex h-14 w-14 items-center justify-center rounded-full " +
+            (c.tone === "success"
+              ? "bg-success-soft text-success"
+              : c.tone === "danger"
+                ? "bg-destructive-soft text-destructive"
+                : c.tone === "warning"
+                  ? "bg-warning-soft text-warning"
+                  : "bg-muted text-muted-foreground")
+          }
+        >
+          <Icon name={c.icon} className="h-7 w-7" strokeWidth={2} />
+        </span>
+        <div>
+          <h3 className="text-h3 font-semibold text-foreground">{c.title}</h3>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
+            {c.detail}
+          </p>
+        </div>
+        <Button
+          onClick={onRequest}
+          disabled={requesting}
+          loading={requesting}
+          leftIcon={<Icon name="walk" className="h-4 w-4" strokeWidth={2} />}
+        >
+          Request dismissal again
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
-function QrReveal({
-  status,
-  countdown,
-  qrToken,
-  cancelling,
-  onCancel
+function CancelDialog({
+  open,
+  onClose,
+  onConfirm,
+  cancelling
 }: {
-  status: DismissalStatus;
-  countdown: string;
-  qrToken: string | null;
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
   cancelling: boolean;
-  onCancel: () => void;
 }) {
-  const expiresSoon = countdown !== "—" && countdown.startsWith("00:") && !countdown.startsWith("00:0");
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="flex flex-col items-stretch gap-4"
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Cancel this request?"
+      description="Gate staff and the teacher will no longer see this pickup request."
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose} disabled={cancelling}>
+            Keep request
+          </Button>
+          <Button
+            variant="danger"
+            onClick={onConfirm}
+            disabled={cancelling}
+            loading={cancelling}
+          >
+            Cancel request
+          </Button>
+        </>
+      }
     >
-      <div className="flex items-center justify-between">
-        <StatusPill status={status} pulse />
-        <MonoLabel size="sm" tone={expiresSoon ? "danger" : "muted"}>
-          EXPIRES {countdown}
-        </MonoLabel>
-      </div>
-
-      <div className="relative bg-bone p-3">
-        {[
-          "top-0 left-0 border-t border-l",
-          "top-0 right-0 border-t border-r",
-          "bottom-0 left-0 border-b border-l",
-          "bottom-0 right-0 border-b border-r"
-        ].map((cls) => (
-          <span
-            key={cls}
-            className={`absolute h-3 w-3 border-ink ${cls}`}
-            style={{ borderWidth: 1.5 }}
-          />
-        ))}
-
-        {qrToken ? (
-          <div className="aspect-square w-full">
-            <DismissalQr token={qrToken} />
-          </div>
-        ) : (
-          <div
-            className="h-44 w-full bg-ink"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 1px 1px, #F1E8DC 1.2px, transparent 1.4px)",
-              backgroundSize: "8px 8px"
-            }}
-            role="img"
-            aria-label="Single-use dismissal QR code"
-          />
-        )}
-
-        <div className="pointer-events-none absolute left-3 right-3 top-3 h-[2px] bg-accent shadow-accent-glow animate-scan" />
-      </div>
-
-      <p className="font-mono text-mono-xs uppercase tracking-widest text-muted text-center">
-        Present this code to gate staff. It is single-use and expires automatically.
+      <p className="text-sm text-muted-foreground">
+        You can request a new dismissal at any time after cancelling.
       </p>
-
-      {status === "REQUESTED" && (
-        <SecondaryButton onClick={onCancel} disabled={cancelling} loading={cancelling}>
-          <Icon name="x" className="h-4 w-4" strokeWidth={2} />
-          Cancel Request
-        </SecondaryButton>
-      )}
-    </motion.div>
+    </Modal>
   );
 }
 
-function InfoCard({
-  icon,
-  label,
-  value
-}: {
-  icon: "car" | "user" | "history" | "settings";
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="bg-panel p-6 group hover:bg-panel-alt transition-colors">
-      <div className="h-10 w-10 hairline flex items-center justify-center text-accent">
-        <Icon name={icon} className="h-5 w-5" strokeWidth={1.4} />
-      </div>
-      <MonoLabel size="sm" tone="muted" className="mt-5 block">
-        {label}
-      </MonoLabel>
-      <p className="font-display text-2xl uppercase text-bone mt-2 leading-none">
-        {value}
-      </p>
-    </div>
-  );
-}
+// ---- Page ----
 
 export default function ParentDashboardPage() {
   const supabase = getSupabaseBrowserClient();
-  const [parentName, setParentName] = useState("Parent");
   const [student, setStudent] = useState<StudentView | null>(null);
   const [activeRequest, setActiveRequest] = useState<RequestRow | null>(null);
   const [linkedStudentId, setLinkedStudentId] = useState<string | null>(null);
@@ -269,7 +380,10 @@ export default function ParentDashboardPage() {
   const [requesting, setRequesting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [authNote, setAuthNote] = useState<string | null>(null);
+  const [auth, setAuth] = useState<AuthNote | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [greeting, setGreeting] = useState("Welcome");
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   const expiresAt = useMemo(
     () => (activeRequest?.expires_at ? new Date(activeRequest.expires_at) : null),
@@ -312,27 +426,42 @@ export default function ParentDashboardPage() {
           data: { user }
         } = await supabase.auth.getUser();
         if (!user) {
-          setAuthNote("Sign in to request dismissal.");
+          if (!cancelled)
+            setAuth({
+              message: "Sign in to manage pickup for your child.",
+              tone: "info",
+              cta: "signin"
+            });
           return;
         }
 
         const sessionUser = await getSessionUser(supabase);
         if (!sessionUser || sessionUser.role !== "parent") {
-          setAuthNote("This portal is for parents only.");
+          if (!cancelled)
+            setAuth({
+              message: "This area is for parents.",
+              tone: "warning",
+              cta: "signin"
+            });
           return;
         }
-        const linkedStudentId = sessionUser.linkedStudentId;
-        if (!linkedStudentId) {
-          setAuthNote("No linked student for this account.");
+        const linkedId = sessionUser.linkedStudentId;
+        if (!linkedId) {
+          if (!cancelled)
+            setAuth({
+              message:
+                "No child is linked to this account. Contact your school for help.",
+              tone: "warning",
+              cta: "home"
+            });
           return;
         }
-        setLinkedStudentId(linkedStudentId);
-        if (user.email) setParentName(user.email);
+        setLinkedStudentId(linkedId);
 
         const { data: stu } = await supabase
           .from("students")
           .select("student_id, name, admission_no, class_id")
-          .eq("student_id", linkedStudentId)
+          .eq("student_id", linkedId)
           .maybeSingle();
 
         let className = "—";
@@ -361,17 +490,24 @@ export default function ParentDashboardPage() {
         const { data: active } = await supabase
           .from("dismissal_requests")
           .select("request_id, status, expires_at, student_id")
-          .eq("student_id", linkedStudentId)
+          .eq("student_id", linkedId)
           .in("status", ["REQUESTED", "AWAITING_TEACHER"])
           .maybeSingle();
         if (active && !cancelled) {
           setActiveRequest(active as RequestRow);
         }
+        if (!cancelled) {
+          setGreeting(greetingFor(new Date()));
+          setLoaded(true);
+        }
       } catch {
         if (!cancelled) {
-          setAuthNote(
-            "Unable to load dismissal data. Supabase may not be configured."
-          );
+          setAuth({
+            message:
+              "We couldn't load your dismissal details. Please try again shortly.",
+            tone: "warning",
+            cta: "home"
+          });
         }
       }
     })();
@@ -417,7 +553,7 @@ export default function ParentDashboardPage() {
     }
   }
 
-  async function handleCancel() {
+  async function handleCancelConfirm() {
     if (!activeRequest || cancelling) return;
     setCancelling(true);
     setError(null);
@@ -425,6 +561,7 @@ export default function ParentDashboardPage() {
       await cancelDismissal(activeRequest.request_id);
       setActiveRequest({ ...activeRequest, status: "CANCELLED" });
       setQrToken(null);
+      setCancelOpen(false);
     } catch (e) {
       const err = e as { code?: string; status?: number };
       if (err?.code === "REQUEST_NOT_CANCELLABLE" || err?.status === 409) {
@@ -438,170 +575,103 @@ export default function ParentDashboardPage() {
   }
 
   const isActive = status === "REQUESTED" || status === "AWAITING_TEACHER";
-  const isFinal = ["DISMISSED", "REJECTED", "CANCELLED", "EXPIRED"].includes(status);
-  const now = new Date();
+  const isFinal = ["DISMISSED", "REJECTED", "CANCELLED", "EXPIRED"].includes(
+    status
+  );
+
+  const liveMeta =
+    status$ === "live"
+      ? { label: "Live", tone: "primary" as const }
+      : status$ === "reconnecting"
+        ? { label: "Reconnecting", tone: "warning" as const }
+        : status$ === "closed"
+          ? { label: "Offline", tone: "danger" as const }
+          : { label: "Connecting", tone: "neutral" as const };
+
+  const authHref = auth?.cta === "signin" ? "/login" : "/";
+  const authCta = auth?.cta === "signin" ? "Sign in" : "Back to home";
+
+  if (!loaded) {
+    return (
+      <div className="mx-auto w-full max-w-content px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <Skeleton className="h-9 w-48" />
+        <div className="mt-6 space-y-4">
+          <Skeleton className="h-40 w-full rounded-xl" />
+          <Skeleton className="h-64 w-full rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  if (auth) {
+    return (
+      <Page title={greeting}>
+        <Card>
+          <CardContent className="flex flex-col gap-4 py-8">
+            <Alert tone={auth.tone}>{auth.message}</Alert>
+            <div>
+              <Link href={authHref}>
+                <Button variant={auth.cta === "signin" ? "primary" : "outline"}>
+                  {authCta}
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </Page>
+    );
+  }
 
   return (
     <>
-      <TopNav
-        links={NAV_LINKS}
-        trailing={
-          <div className="hidden md:flex items-center gap-2">
-            <StatusIndicator status={status$} />
-          </div>
+      <Page
+        title={greeting}
+        description={
+          student ? `Manage pickup for ${student.name}.` : undefined
         }
+        actions={
+          <StatusBadge tone={liveMeta.tone} pulse={status$ === "live"}>
+            {liveMeta.label}
+          </StatusBadge>
+        }
+      >
+        <div className="space-y-8">
+          <Section title="Your child">
+            {student && <ChildCard student={student} />}
+          </Section>
+
+          <Section title="Pickup">
+            {isFinal ? (
+              <OutcomePanel
+                status={status}
+                onRequest={handleRequest}
+                requesting={requesting}
+              />
+            ) : isActive ? (
+              <ActivePanel
+                status={status}
+                qrToken={qrToken}
+                countdown={countdown}
+                onCancel={() => setCancelOpen(true)}
+                cancelling={cancelling}
+              />
+            ) : (
+              <IdlePanel
+                onRequest={handleRequest}
+                requesting={requesting}
+                error={error}
+              />
+            )}
+          </Section>
+        </div>
+      </Page>
+
+      <CancelDialog
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        onConfirm={handleCancelConfirm}
+        cancelling={cancelling}
       />
-
-      <main className="pt-24 pb-16 section-shell">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="flex items-end justify-between border-b border-line pb-6 gap-4 flex-wrap"
-        >
-          <div>
-            <Eyebrow />
-            <h2 className="font-display text-display-md uppercase text-bone mt-4 leading-none">
-              {parentName}
-            </h2>
-          </div>
-          <div className="text-right">
-            <MonoLabel size="sm" tone="muted">
-              {now.toLocaleDateString("en-US", { weekday: "long" })}
-            </MonoLabel>
-            <p className="font-mono text-mono-md text-bone mt-1 tabular-nums">
-              {now.toLocaleString("en-US", {
-                month: "short",
-                day: "numeric",
-                hour: "numeric",
-                minute: "2-digit"
-              })}
-            </p>
-          </div>
-        </motion.div>
-
-        {authNote && (
-          <div className="mt-10">
-            <AccessNote message={authNote} signInHref="/login" />
-          </div>
-        )}
-
-        {!authNote && (
-          <div className="mt-10 grid gap-8">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
-            >
-              <Panel
-                withTopBar
-                topBar={
-                  <>
-                    <span>02 / STUDENT · ACTIVE</span>
-                    {isActive && (
-                      <span className="text-success flex items-center gap-2">
-                        <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_8px_#B7EF42] animate-pulse-dot" />
-                        LIVE
-                      </span>
-                    )}
-                  </>
-                }
-              >
-                <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-8 p-7">
-                  <div className="flex items-start gap-5">
-                    <div className="h-16 w-16 hairline flex items-center justify-center text-accent shrink-0">
-                      <Icon name="user" className="h-7 w-7" strokeWidth={1.4} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <MonoLabel size="sm" tone="muted">
-                        Student
-                      </MonoLabel>
-                      <h3 className="font-display text-3xl uppercase text-bone mt-1 leading-none">
-                        {student?.name ?? "—"}
-                      </h3>
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <Spec label="GRADE" value={student?.section ?? "—"} />
-                        <Spec label="CLASS" value={student?.className ?? "—"} />
-                        <Spec label="ADM" value={student?.admissionNo ?? "—"} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-stretch gap-3 min-w-[260px] w-full">
-                    {isFinal ? (
-                      <OutcomeCard
-                        status={status}
-                        onRequest={handleRequest}
-                        requesting={requesting}
-                      />
-                    ) : isActive ? (
-                      <QrReveal
-                        status={status}
-                        countdown={countdown}
-                        qrToken={qrToken}
-                        cancelling={cancelling}
-                        onCancel={handleCancel}
-                      />
-                    ) : (
-                      <>
-                        <PrimaryButton
-                          onClick={handleRequest}
-                          disabled={requesting}
-                          loading={requesting}
-                          aria-label="Request dismissal"
-                        >
-                          <Icon name="walk" className="h-4 w-4" strokeWidth={2} />
-                          Request Dismissal
-                        </PrimaryButton>
-                        {error && <Alert>{error}</Alert>}
-                      </>
-                    )}
-                  </div>
-                </div>
-              </Panel>
-            </motion.div>
-
-            <motion.div
-              initial="hidden"
-              animate="show"
-              variants={{
-                hidden: {},
-                show: { transition: { staggerChildren: 0.06, delayChildren: 0.2 } }
-              }}
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-line"
-            >
-              {[
-                { icon: "car" as const, label: "Pickup Method", value: "Parent Pickup" },
-                { icon: "user" as const, label: "Authorized", value: "Linked Guardian" },
-                { icon: "settings" as const, label: "Class", value: student?.className ?? "—" },
-                { icon: "history" as const, label: "Admission", value: student?.admissionNo ?? "—" }
-              ].map((item) => (
-                <motion.div
-                  key={item.label}
-                  variants={{
-                    hidden: { opacity: 0, y: 16 },
-                    show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } }
-                  }}
-                >
-                  <InfoCard icon={item.icon} label={item.label} value={item.value} />
-                </motion.div>
-              ))}
-            </motion.div>
-
-            <footer className="mt-2 border-t border-line pt-8 flex flex-wrap items-center justify-between gap-4">
-              <MonoLabel size="xs" tone="muted">
-                DISMISS / V0.1 / MIT — DISMISSFLOW EPS
-              </MonoLabel>
-              <div className="flex items-center gap-4">
-                <MonoLabel size="xs" tone="muted">
-                  PUSH · REALTIME
-                </MonoLabel>
-                <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_10px_#B7EF42] animate-pulse-dot" />
-              </div>
-            </footer>
-          </div>
-        )}
-      </main>
     </>
   );
 }

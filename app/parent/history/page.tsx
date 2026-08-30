@@ -1,26 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent } from "@/components/ui/Card";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { Alert } from "@/components/ui/Alert";
 import { Icon } from "@/components/ui/Icon";
-import { MonoLabel } from "@/components/ui/MonoLabel";
-import { Panel } from "@/components/ui/Panel";
-import { StatusPill } from "@/components/ui/StatusPill";
-import { TopNav } from "@/components/ui/TopNav";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { AccessNote } from "@/components/ui/AccessNote";
-import { LoadingState, EmptyState } from "@/components/ui/StateBlock";
-import { GhostButton } from "@/components/ui/Button";
-import type { DismissalStatus } from "@/lib/dismissal/state";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { Page } from "@/components/layout/Page";
+import { EmptyState, LoadingState } from "@/components/ui/StateBlock";
 import { getSessionUser } from "@/lib/auth/session";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-
-const NAV_LINKS = [
-  { label: "Dashboard", href: "/parent" },
-  { label: "History", href: "/parent/history" },
-  { label: "Profile", href: "/parent/profile" }
-];
+import { dismissalStatusMeta } from "@/lib/dismissal/status-meta";
+import type { DismissalStatus } from "@/lib/dismissal/state";
 
 type HistoryRow = {
   request_id: string;
@@ -30,7 +23,7 @@ type HistoryRow = {
   student_id: string;
 };
 
-function formatTime(iso: string): string {
+function formatWhen(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleString("en-US", {
     month: "short",
@@ -40,128 +33,128 @@ function formatTime(iso: string): string {
   });
 }
 
+function formatDay(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+}
+
 export default function ParentHistoryPage() {
   const supabase = getSupabaseBrowserClient();
   const [rows, setRows] = useState<HistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [authNote, setAuthNote] = useState<string | null>(null);
+  const [auth, setAuth] = useState<{ message: string; tone: "info" | "warning"; cta: "signin" | "home" } | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const sessionUser = await getSessionUser(supabase);
-        if (!sessionUser || sessionUser.role !== "parent" || !sessionUser.linkedStudentId) {
-          setAuthNote("Sign in as a parent to view history.");
-          setLoading(false);
-          return;
-        }
-        const { data, error: qErr } = await supabase
-          .from("dismissal_requests")
-          .select("request_id, status, created_at, updated_at, student_id")
-          .eq("student_id", sessionUser.linkedStudentId)
-          .order("created_at", { ascending: false })
-          .limit(50);
-        if (qErr) throw qErr;
-        if (!cancelled) setRows((data ?? []) as HistoryRow[]);
-      } catch {
-        if (!cancelled) setError("Could not load history.");
-      } finally {
-        if (!cancelled) setLoading(false);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const sessionUser = await getSessionUser(supabase);
+      if (!sessionUser || sessionUser.role !== "parent" || !sessionUser.linkedStudentId) {
+        setAuth({
+          message: "Sign in as a parent to view history.",
+          tone: "info",
+          cta: "signin"
+        });
+        setLoading(false);
+        return;
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
+      const { data, error: qErr } = await supabase
+        .from("dismissal_requests")
+        .select("request_id, status, created_at, updated_at, student_id")
+        .eq("student_id", sessionUser.linkedStudentId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (qErr) throw qErr;
+      setRows((data ?? []) as HistoryRow[]);
+    } catch {
+      setError("Could not load history.");
+    } finally {
+      setLoading(false);
+    }
   }, [supabase]);
 
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (auth) {
+    return (
+      <Page title="Dismissal history">
+        <Card>
+          <CardContent className="flex flex-col gap-4 py-8">
+            <Alert tone={auth.tone}>{auth.message}</Alert>
+            <div>
+              <Link href={auth.cta === "signin" ? "/login" : "/"}>
+                <Button variant={auth.cta === "signin" ? "primary" : "outline"}>
+                  {auth.cta === "signin" ? "Sign in" : "Back to home"}
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </Page>
+    );
+  }
+
   return (
-    <>
-      <TopNav
-        links={NAV_LINKS}
-        trailing={
-          <Link
-            href="/parent"
-            className="font-mono uppercase tracking-widest text-mono-xs text-muted hover:text-bone transition-colors"
-          >
-            ← Back to dashboard
-          </Link>
-        }
-      />
-
-      <main className="pt-24 pb-16 section-shell">
-        <PageHeader
-          eyebrow="02 / HISTORY"
-          title="Dismissal History"
-          description="Recent pickup requests for your linked child. RLS limits this list to the child on your account; the audit log retains the full server-side trail."
-        />
-
-        {authNote && (
-          <div className="mt-8">
-            <AccessNote message={authNote} signInHref="/login" />
+    <Page
+      title="Dismissal history"
+      description="Recent pickup requests for your linked child."
+      actions={
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void load()}
+          disabled={loading}
+          loading={loading}
+          leftIcon={<Icon name="refresh" className="h-4 w-4" strokeWidth={2} />}
+        >
+          Refresh
+        </Button>
+      }
+    >
+      <Card>
+        {loading ? (
+          <div className="space-y-3 p-5">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-16 w-full rounded-lg" />
+            ))}
           </div>
+        ) : error ? (
+          <CardContent className="py-8">
+            <Alert tone="error">{error}</Alert>
+          </CardContent>
+        ) : rows.length === 0 ? (
+          <EmptyState
+            icon="history"
+            title="No requests yet"
+            description="When you request a pickup, it will appear here."
+          />
+        ) : (
+          <ul className="divide-y divide-border">
+            {rows.map((r) => {
+              const meta = dismissalStatusMeta(r.status);
+              return (
+                <li
+                  key={r.request_id}
+                  className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">
+                      {formatWhen(r.created_at)}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {formatDay(r.created_at)}
+                    </p>
+                  </div>
+                  <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
+                </li>
+              );
+            })}
+          </ul>
         )}
-
-        {error && (
-          <div className="mt-8">
-            <Panel withTopBar topBar={<span>02 / HISTORY</span>}>
-              <div className="p-7">
-                <span className="flex items-center gap-2 font-mono uppercase tracking-widest text-mono-sm text-danger">
-                  <Icon name="x" className="h-4 w-4" strokeWidth={2} />
-                  {error}
-                </span>
-              </div>
-            </Panel>
-          </div>
-        )}
-
-        {!authNote && !error && (
-          <div className="mt-8">
-            <Panel
-              withTopBar
-              topBar={
-                <>
-                  <span>01 / REQUESTS</span>
-                  <span className="text-muted">LIMIT 50</span>
-                </>
-              }
-            >
-              {loading ? (
-                <LoadingState message="Loading history…" />
-              ) : rows.length === 0 ? (
-                <EmptyState message="No requests yet." icon="history" />
-              ) : (
-                <ul className="divide-y divide-line">
-                  {rows.map((r, idx) => (
-                    <motion.li
-                      key={r.request_id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{
-                        duration: 0.4,
-                        ease: [0.16, 1, 0.3, 1],
-                        delay: idx * 0.04
-                      }}
-                      className="p-5 flex items-center justify-between gap-4"
-                    >
-                      <div className="flex flex-col gap-1">
-                        <MonoLabel size="xs" tone="muted">
-                          REQUEST {r.request_id.slice(0, 8).toUpperCase()}
-                        </MonoLabel>
-                        <p className="font-mono text-mono-sm text-bone tabular-nums">
-                          {formatTime(r.created_at)}
-                        </p>
-                      </div>
-                      <StatusPill status={r.status} />
-                    </motion.li>
-                  ))}
-                </ul>
-              )}
-            </Panel>
-          </div>
-        )}
-      </main>
-    </>
+      </Card>
+    </Page>
   );
 }

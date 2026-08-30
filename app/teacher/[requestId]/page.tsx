@@ -3,24 +3,27 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Icon } from "@/components/ui/Icon";
-import { MonoLabel } from "@/components/ui/MonoLabel";
-import { Panel } from "@/components/ui/Panel";
-import { StatusPill } from "@/components/ui/StatusPill";
-import { TopNav } from "@/components/ui/TopNav";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { AccessNote } from "@/components/ui/AccessNote";
-import { Field, DefinitionList } from "@/components/ui/Field";
+import { Button, DangerOutlineButton } from "@/components/ui/Button";
+import { Card, CardContent, CardHeader } from "@/components/ui/Card";
+import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
 import { Alert } from "@/components/ui/Alert";
-import { PrimaryButton, DangerButton, DangerOutlineButton, GhostButton } from "@/components/ui/Button";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { Icon } from "@/components/ui/Icon";
+import { Avatar } from "@/components/ui/Avatar";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { Modal } from "@/components/ui/Modal";
+import { Field, DefinitionList } from "@/components/ui/Field";
+import { Page } from "@/components/layout/Page";
 import { getSessionUser } from "@/lib/auth/session";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { approveDismissal, rejectDismissal } from "@/lib/dismissal/client";
 import { useTableChanges } from "@/lib/realtime/subs";
 import type { DismissalStatus } from "@/lib/dismissal/state";
 
-const NAV_LINKS = [{ label: "Queue", href: "/teacher" }];
+type Access = {
+  tone: "info" | "warning";
+  message: string;
+  cta: "signin" | "home";
+};
 
 type RequestRow = {
   request_id: string;
@@ -48,55 +51,65 @@ function clockTime(iso: string): string {
   });
 }
 
+// Teacher-appropriate status labels (distinct from the parent-facing
+// dismissalStatusMeta, where AWAITING_TEACHER reads "Approved").
+const STATUS_META: Record<
+  DismissalStatus,
+  { label: string; tone: StatusTone }
+> = {
+  IDLE: { label: "Idle", tone: "neutral" },
+  REQUESTED: { label: "Awaiting gate scan", tone: "info" },
+  AWAITING_TEACHER: { label: "Awaiting your decision", tone: "info" },
+  DISMISSED: { label: "Dismissed", tone: "success" },
+  REJECTED: { label: "Rejected", tone: "danger" },
+  CANCELLED: { label: "Cancelled", tone: "neutral" },
+  EXPIRED: { label: "Expired", tone: "warning" }
+};
+
 function describeDecisionError(
   code: string,
   fallback: string
-): { title: string; detail: string; action: string } {
+): { title: string; detail: string } {
   if (code === "UNAUTHENTICATED" || code.startsWith("UNAUTHORIZED")) {
     return {
-      title: "Session Expired",
-      detail: "Your teacher session is no longer valid.",
-      action: "Sign in again at /login/teacher."
+      title: "Session expired",
+      detail: "Your teacher session is no longer valid. Sign in again."
     };
   }
   switch (code) {
     case "TEACHER_REQUIRED":
     case "FORBIDDEN":
       return {
-        title: "Not Authorized",
-        detail: "This account is not a teacher account.",
-        action: "Sign in with a teacher account."
+        title: "Not authorized",
+        detail: "This account is not a teacher account."
       };
     case "TEACHER_CLASS_FORBIDDEN":
       return {
-        title: "Wrong Class",
-        detail: "This request belongs to another class.",
-        action: "Only your assigned class's requests can be decided."
+        title: "Wrong class",
+        detail: "This request belongs to another class."
+      };
+    case "TEACHER_SCHOOL_FORBIDDEN":
+      return {
+        title: "Wrong school",
+        detail: "This request belongs to another school."
       };
     case "REQUEST_NOT_FOUND":
-      return {
-        title: "Not Found",
-        detail: "This request is no longer available.",
-        action: "Return to the queue."
-      };
+      return { title: "Not found", detail: "This request is no longer available." };
     case "REQUEST_NOT_AWAITING_TEACHER":
       return {
-        title: "Already Decided",
-        detail: "Another teacher already handled this request.",
-        action: "Return to the queue."
+        title: "Already decided",
+        detail: "Another teacher already handled this request."
       };
     case "INVALID_DECISION":
     case "INVALID_REQUEST":
       return {
-        title: "Invalid Request",
-        detail: "The request reference was invalid.",
-        action: "Return to the queue and try again."
+        title: "Invalid request",
+        detail: "The request reference was invalid. Return to the queue."
       };
     default:
       return {
-        title: "Action Failed",
-        detail: fallback || "The decision could not be completed.",
-        action: "Try again in a moment."
+        title: "Action failed",
+        detail: fallback || "The decision could not be completed."
       };
   }
 }
@@ -111,7 +124,8 @@ export default function TeacherDetailPage() {
   const [student, setStudent] = useState<StudentRow | null>(null);
   const [guardian, setGuardian] = useState<GuardianRow | null>(null);
   const [scanTime, setScanTime] = useState<string | null>(null);
-  const [authNote, setAuthNote] = useState<string | null>(null);
+  const [access, setAccess] = useState<Access | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [acting, setActing] = useState<"approve" | "reject" | null>(null);
   const [confirmReject, setConfirmReject] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -125,73 +139,106 @@ export default function TeacherDetailPage() {
     },
     [requestId]
   );
-  useTableChanges<RequestRow>(supabase, "dismissal_requests", "*", handleChange);
+
+  useTableChanges<RequestRow>(
+    supabase,
+    "dismissal_requests",
+    "*",
+    handleChange
+  );
 
   const loadRequest = useCallback(async () => {
-    try {
-      const sessionUser = await getSessionUser(supabase);
-      if (!sessionUser || sessionUser.role !== "teacher") {
-        setAuthNote("Sign in as a teacher to view pickup details.");
-        return;
-      }
-      const { data: r, error: rErr } = await supabase
-        .from("dismissal_requests")
-        .select("request_id, student_id, status, created_at, updated_at, expires_at")
-        .eq("request_id", requestId)
-        .maybeSingle();
-      if (rErr) throw rErr;
-      if (!r) {
-        setAuthNote("This request was not found.");
-        return;
-      }
-      setRequest(r as RequestRow);
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setAccess({
+        tone: "info",
+        message: "Sign in to view pickup details for your class.",
+        cta: "signin"
+      });
+      return;
+    }
+    const sessionUser = await getSessionUser(supabase);
+    if (!sessionUser || sessionUser.role !== "teacher") {
+      setAccess({ tone: "warning", message: "This area is for teachers.", cta: "home" });
+      return;
+    }
+    const { data: r, error: rErr } = await supabase
+      .from("dismissal_requests")
+      .select("request_id, student_id, status, created_at, updated_at, expires_at")
+      .eq("request_id", requestId)
+      .maybeSingle();
+    if (rErr) throw rErr;
+    // RLS scopes this to the teacher's class; a request in another class is
+    // simply invisible, so an unknown id is reported as not found.
+    if (!r) {
+      setAccess({
+        tone: "warning",
+        message: "This request was not found. It may belong to another class.",
+        cta: "home"
+      });
+      return;
+    }
+    setRequest(r as RequestRow);
 
-      const { data: stu } = await supabase
-        .from("students")
-        .select("student_id, name, admission_no, class_id")
-        .eq("student_id", r.student_id)
-        .maybeSingle();
-      if (stu) {
-        const next = stu as StudentRow;
+    const { data: stu } = await supabase
+      .from("students")
+      .select("student_id, name, admission_no, class_id")
+      .eq("student_id", (r as RequestRow).student_id)
+      .maybeSingle();
+    if (stu) {
+      const next = stu as StudentRow;
+      if (stu.class_id) {
         const { data: cls } = await supabase
           .from("classes")
           .select("class_name")
-          .eq("class_id", (stu as StudentRow).class_id)
+          .eq("class_id", stu.class_id)
           .maybeSingle();
         if (cls) next.class_name = cls.class_name;
-        setStudent(next);
       }
-
-      const { data: sg } = await supabase
-        .from("student_guardians")
-        .select("guardian_id")
-        .eq("student_id", r.student_id)
-        .limit(1)
-        .maybeSingle();
-      if (sg) {
-        const { data: gd } = await supabase
-          .from("guardians")
-          .select("name, phone")
-          .eq("guardian_id", sg.guardian_id)
-          .maybeSingle();
-        if (gd) setGuardian({ name: gd.name, phone: gd.phone });
-      }
-      const { data: ev } = await supabase
-        .from("dismissal_events")
-        .select("scan_time")
-        .eq("request_id", requestId)
-        .maybeSingle();
-      if (ev?.scan_time) setScanTime(ev.scan_time);
-    } catch {
-      setAuthNote("Could not load pickup details.");
+      setStudent(next);
     }
+
+    const { data: sg } = await supabase
+      .from("student_guardians")
+      .select("guardian_id")
+      .eq("student_id", (r as RequestRow).student_id)
+      .limit(1)
+      .maybeSingle();
+    if (sg) {
+      const { data: gd } = await supabase
+        .from("guardians")
+        .select("name, phone")
+        .eq("guardian_id", sg.guardian_id)
+        .maybeSingle();
+      if (gd) setGuardian({ name: gd.name, phone: gd.phone });
+    }
+
+    const { data: ev } = await supabase
+      .from("dismissal_events")
+      .select("scan_time")
+      .eq("request_id", requestId)
+      .maybeSingle();
+    if (ev?.scan_time) setScanTime(ev.scan_time);
+
+    setLoaded(true);
   }, [supabase, requestId]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (cancelled) return;
-      await loadRequest();
+      try {
+        if (cancelled) return;
+        await loadRequest();
+      } catch {
+        if (!cancelled)
+          setAccess({
+            tone: "warning",
+            message: "We couldn't load this pickup. Please try again shortly.",
+            cta: "home"
+          });
+      }
     })();
     return () => {
       cancelled = true;
@@ -209,6 +256,7 @@ export default function TeacherDetailPage() {
         await rejectDismissal(request.request_id);
       }
       setConfirmReject(false);
+      // Re-fetch the authoritative row so the UI reflects the server's decision.
       await loadRequest();
     } catch (e) {
       const err = e as { code?: string; message?: string };
@@ -220,184 +268,232 @@ export default function TeacherDetailPage() {
           err.code ?? "",
           err.message ?? "Could not complete the decision."
         );
-        setActionError(g.title + " — " + g.detail);
+        setActionError(`${g.title} — ${g.detail}`);
       }
     } finally {
       setActing(null);
     }
   }
 
-  const decided =
-    request?.status === "DISMISSED" ||
-    request?.status === "REJECTED" ||
-    request?.status === "CANCELLED";
+  if (access) {
+    const href = access.cta === "signin" ? "/login/teacher" : "/";
+    const cta = access.cta === "signin" ? "Sign in" : "Back to home";
+    return (
+      <Page title="Pickup detail">
+        <Card>
+          <CardContent className="flex flex-col gap-4 py-8">
+            <Alert tone={access.tone}>{access.message}</Alert>
+            <div>
+              <Link href={href}>
+                <Button variant={access.cta === "signin" ? "primary" : "outline"}>
+                  {cta}
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </Page>
+    );
+  }
+
+  if (!loaded) {
+    return (
+      <Page title={student?.name ?? "Pickup"}>
+        <div className="max-w-2xl space-y-6">
+          <Card>
+            <CardContent className="space-y-4 py-6">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-4 w-48" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="space-y-3 py-6">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-4 w-32" />
+            </CardContent>
+          </Card>
+        </div>
+      </Page>
+    );
+  }
+
+  const status = request?.status ?? "IDLE";
+  const meta = STATUS_META[status];
+  const isFinal = ["DISMISSED", "REJECTED", "CANCELLED", "EXPIRED"].includes(
+    status
+  );
+  const isAwaiting = status === "AWAITING_TEACHER";
 
   return (
-    <>
-      <TopNav
-        links={NAV_LINKS}
-        trailing={
-          <Link
-            href="/teacher"
-            className="font-mono uppercase tracking-widest text-mono-xs text-muted hover:text-bone transition-colors"
-          >
-            ← Back to queue
-          </Link>
-        }
-      />
+    <Page
+      title={student?.name ?? "Pickup"}
+      description={
+        student
+          ? `ADM ${student.admission_no}${
+              student.class_name ? ` · ${student.class_name}` : ""
+            }`
+          : undefined
+      }
+    >
+      <div className="max-w-2xl space-y-6">
+        <Link
+          href="/teacher"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <Icon name="chevron.left" className="h-4 w-4" strokeWidth={2} />
+          Back to queue
+        </Link>
 
-      <main className="pt-24 pb-16 section-shell max-w-3xl">
-        <PageHeader
-          eyebrow="04 / PICKUP DETAIL"
-          title={student?.name ?? "—"}
-          description={
-            <span className="font-mono uppercase tracking-widest text-mono-sm">
-              ADM {student?.admission_no ?? "—"}
-              {student?.class_name ? (
-                <>
-                  {" "}
-                  <span className="text-line">/</span> {student.class_name}
-                </>
-              ) : null}
-            </span>
-          }
-        />
+        <Card>
+          <CardHeader title="Request status" />
+          <CardContent className="py-5">
+            <DefinitionList>
+              <Field label="Status">
+                <StatusBadge tone={meta.tone} pulse={!isFinal}>
+                  {meta.label}
+                </StatusBadge>
+              </Field>
+              <Field label="Requested">
+                <span className="tabular-nums">
+                  {request ? clockTime(request.created_at) : "—"}
+                </span>
+              </Field>
+              {scanTime && (
+                <Field label="Scanned">
+                  <span className="tabular-nums">{clockTime(scanTime)}</span>
+                </Field>
+              )}
+            </DefinitionList>
+          </CardContent>
+        </Card>
 
-        {authNote && (
-          <div className="mt-8">
-            <AccessNote message={authNote} signInHref="/login/teacher" signInLabel="Sign In" />
-          </div>
-        )}
-
-        {!authNote && request && (
-          <div className="mt-8 grid gap-6">
-            <Panel withTopBar topBar={<span>01 / STATE</span>}>
+        {student && (
+          <Card>
+            <CardHeader
+              title="Student"
+              action={<Avatar name={student.name} size="md" />}
+            />
+            <CardContent className="py-5">
               <DefinitionList>
-                <Field label="REQUEST STATUS">
-                  <StatusPill status={request.status} pulse={!decided} />
+                <Field label="Name">{student.name}</Field>
+                <Field label="Admission no.">
+                  <span className="tabular-nums">{student.admission_no}</span>
                 </Field>
-                <Field label="REQUESTED">
-                  <span className="font-mono text-mono-sm uppercase tracking-wider">
-                    {clockTime(request.created_at)}
-                  </span>
-                </Field>
-                {scanTime && (
-                  <Field label="SCANNED">
-                    <span className="font-mono text-mono-sm uppercase tracking-wider">
-                      {clockTime(scanTime)}
-                    </span>
-                  </Field>
+                {student.class_name && (
+                  <Field label="Class">{student.class_name}</Field>
                 )}
               </DefinitionList>
-            </Panel>
+            </CardContent>
+          </Card>
+        )}
 
-            {guardian && (
-              <Panel withTopBar topBar={<span>02 / GUARDIAN</span>}>
-                <DefinitionList>
-                  <Field label="NAME">
-                    <span className="font-mono text-mono-sm uppercase tracking-wider">
-                      {guardian.name}
-                    </span>
-                  </Field>
-                  <Field label="PHONE">
-                    <span className="font-mono text-mono-sm uppercase tracking-wider tabular-nums">
-                      {guardian.phone ?? "—"}
-                    </span>
-                  </Field>
-                </DefinitionList>
-              </Panel>
+        {guardian && (
+          <Card>
+            <CardHeader title="Guardian" />
+            <CardContent className="py-5">
+              <DefinitionList>
+                <Field label="Name">{guardian.name}</Field>
+                <Field label="Phone">
+                  <span className="tabular-nums">{guardian.phone ?? "—"}</span>
+                </Field>
+              </DefinitionList>
+            </CardContent>
+          </Card>
+        )}
+
+        <Card>
+          <CardHeader title="Decision" />
+          <CardContent className="space-y-4 py-6">
+            {isFinal ? (
+              <Alert
+                tone={
+                  status === "DISMISSED"
+                    ? "success"
+                    : status === "REJECTED"
+                      ? "danger"
+                      : status === "EXPIRED"
+                        ? "warning"
+                        : "info"
+                }
+              >
+                {status === "DISMISSED"
+                  ? "Student dismissed. The parent has been notified in real time."
+                  : status === "REJECTED"
+                    ? "Request rejected. The parent has been notified in real time."
+                    : status === "EXPIRED"
+                      ? "This request expired before a decision was made."
+                      : "This request was cancelled."}
+              </Alert>
+            ) : isAwaiting ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  You are the final authority. A QR code alone never releases a
+                  student.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    variant="primary"
+                    onClick={() => void runDecision("approve")}
+                    disabled={acting !== null}
+                    loading={acting === "approve"}
+                    leftIcon={
+                      <Icon name="check" className="h-4 w-4" strokeWidth={2.4} />
+                    }
+                  >
+                    Approve &amp; dismiss
+                  </Button>
+                  <DangerOutlineButton
+                    onClick={() => setConfirmReject(true)}
+                    disabled={acting !== null}
+                  >
+                    <Icon name="x" className="h-4 w-4" strokeWidth={2.4} />
+                    Reject
+                  </DangerOutlineButton>
+                </div>
+              </>
+            ) : (
+              <Alert tone="info">
+                This request is still awaiting a gate scan. You can decide once
+                the gate has scanned the pickup code.
+              </Alert>
             )}
 
-            <Panel withTopBar topBar={<span>03 / DECISION</span>}>
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                className="p-7 flex flex-col gap-5"
-              >
-                {decided ? (
-                  <div
-                    className={`flex items-center gap-3 font-mono uppercase tracking-widest text-mono-sm border px-4 py-3 ${
-                      request.status === "DISMISSED"
-                        ? "text-success border-success/40"
-                        : "text-danger border-danger/40"
-                    }`}
-                  >
-                    <Icon
-                      name={request.status === "DISMISSED" ? "check" : "x"}
-                      className="h-5 w-5"
-                      strokeWidth={2.2}
-                    />
-                    {request.status === "DISMISSED"
-                      ? "Student dismissed. The parent has been notified in real time."
-                      : "Request rejected. The parent has been notified in real time."}
-                  </div>
-                ) : confirmReject ? (
-                  <>
-                    <p className="font-mono text-mono-sm uppercase tracking-widest text-danger">
-                      Confirm rejection?
-                    </p>
-                    <p className="font-mono text-mono-xs uppercase tracking-widest text-muted">
-                      The student will not be released. The parent is notified.
-                      This cannot be undone.
-                    </p>
-                    <div className="flex flex-wrap gap-3">
-                      <DangerButton
-                        onClick={() => runDecision("reject")}
-                        disabled={acting !== null}
-                        loading={acting === "reject"}
-                      >
-                        <Icon name="x" className="h-4 w-4" strokeWidth={2.4} />
-                        Confirm Reject
-                      </DangerButton>
-                      <GhostButton onClick={() => setConfirmReject(false)} disabled={acting !== null}>
-                        Cancel
-                      </GhostButton>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className="font-mono text-mono-sm uppercase tracking-widest text-muted">
-                      You are the final authority. A QR alone never releases a
-                      student.
-                    </p>
-                    <div className="flex flex-wrap gap-3">
-                      <PrimaryButton
-                        onClick={() => runDecision("approve")}
-                        disabled={acting !== null}
-                        loading={acting === "approve"}
-                        aria-label="Approve dismissal"
-                      >
-                        <Icon name="check" className="h-4 w-4" strokeWidth={2.4} />
-                        Approve &amp; Dismiss
-                      </PrimaryButton>
-                      <DangerOutlineButton
-                        onClick={() => setConfirmReject(true)}
-                        disabled={acting !== null}
-                      >
-                        <Icon name="x" className="h-4 w-4" strokeWidth={2.4} />
-                        Reject
-                      </DangerOutlineButton>
-                    </div>
-                  </>
-                )}
+            {actionError && <Alert tone="danger">{actionError}</Alert>}
+          </CardContent>
+        </Card>
+      </div>
 
-                {actionError && <Alert tone="danger">{actionError}</Alert>}
-
-                {!decided && (
-                  <GhostButton
-                    onClick={() => router.push("/teacher")}
-                    className="self-start"
-                  >
-                    <Icon name="arrow.right" className="h-3.5 w-3.5 rotate-180" strokeWidth={2} />
-                    Back to queue
-                  </GhostButton>
-                )}
-              </motion.div>
-            </Panel>
-          </div>
-        )}
-      </main>
-    </>
+      <Modal
+        open={confirmReject}
+        onClose={() => setConfirmReject(false)}
+        title="Reject this request?"
+        description="The student will not be released and the parent is notified. This cannot be undone."
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmReject(false)}
+              disabled={acting !== null}
+            >
+              Keep request
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => void runDecision("reject")}
+              disabled={acting !== null}
+              loading={acting === "reject"}
+            >
+              Confirm reject
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted-foreground">
+          You can still approve this request instead if you change your mind
+          before confirming.
+        </p>
+      </Modal>
+    </Page>
   );
 }

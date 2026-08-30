@@ -1,31 +1,36 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent, CardHeader } from "@/components/ui/Card";
+import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
+import { Alert } from "@/components/ui/Alert";
 import { Icon } from "@/components/ui/Icon";
-import { MonoLabel } from "@/components/ui/MonoLabel";
-import { Panel } from "@/components/ui/Panel";
-import { StatusIndicator } from "@/components/ui/StatusIndicator";
-import { TopNav } from "@/components/ui/TopNav";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { AccessNote } from "@/components/ui/AccessNote";
-import { LoadingState, EmptyState } from "@/components/ui/StateBlock";
-import { GhostButton } from "@/components/ui/Button";
+import { Avatar } from "@/components/ui/Avatar";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/StateBlock";
+import { Page, Section } from "@/components/layout/Page";
 import { getSessionUser } from "@/lib/auth/session";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRealtimeStatus, useTableChanges } from "@/lib/realtime/subs";
+import type { DismissalStatus } from "@/lib/dismissal/state";
 
-const NAV_LINKS = [{ label: "Queue", href: "/teacher" }];
-
-type QueueRow = {
+type QueueRequest = {
   request_id: string;
-  status: "AWAITING_TEACHER" | "REQUESTED" | "DISMISSED" | "REJECTED";
-  created_at: string;
   student_id: string;
+  status: DismissalStatus;
+  created_at: string;
+  updated_at: string;
 };
 
 type StudentLite = { name: string; admission_no: string };
+
+type Access = {
+  tone: "info" | "warning";
+  message: string;
+  cta: "signin" | "home";
+};
 
 function clockTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("en-US", {
@@ -34,215 +39,311 @@ function clockTime(iso: string): string {
   });
 }
 
-// How long the request has been waiting on the teacher (request age).
-function ageLabel(iso: string): string {
-  const mins = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
-  if (mins < 1) return "JUST NOW";
-  if (mins < 60) return mins + "M AGO";
-  return Math.floor(mins / 60) + "H " + (mins % 60) + "M AGO";
+// How long the request has been waiting on the teacher (since the gate scan that
+// moved it to AWAITING_TEACHER — reflected by updated_at).
+function waitedLabel(iso: string): string {
+  const mins = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+  );
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m ago`;
 }
 
 export default function TeacherQueuePage() {
   const supabase = getSupabaseBrowserClient();
-  const [rows, setRows] = useState<QueueRow[]>([]);
+  const [rows, setRows] = useState<QueueRequest[]>([]);
   const [students, setStudents] = useState<Record<string, StudentLite>>({});
-  // Mirror of `students` for use inside the realtime handler. Reading `students`
-  // directly would force the handler (and the useTableChanges subscription) to
-  // be recreated whenever the map changes — thrashing the realtime channel and
-  // opening a window where dismissal events are missed. The ref is kept in sync
-  // via the effect below so the handler can stay stable (deps: [supabase]).
+  // Mirror of `students` for use inside the realtime handler so the handler
+  // (and therefore the useTableChanges subscription) stays stable and never
+  // thrashes the realtime channel. Kept in sync via the effect below.
   const studentsRef = useRef<Record<string, StudentLite>>({});
   useEffect(() => {
     studentsRef.current = students;
   }, [students]);
-  const [classMeta, setClassMeta] = useState<{ name: string; section: string }>({ name: "", section: "" });
-  const [authNote, setAuthNote] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [classMeta, setClassMeta] = useState<{ name: string; section: string }>(
+    { name: "", section: "" }
+  );
+  const [access, setAccess] = useState<Access | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [queueError, setQueueError] = useState<string | null>(null);
   const status$ = useRealtimeStatus(supabase, "dismissal_requests");
 
-  const loadQueue = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      const sessionUser = await getSessionUser(supabase);
-      if (!sessionUser || sessionUser.role !== "teacher" || !sessionUser.assignedClassId) {
-        setAuthNote("Sign in as a teacher to view the pickup queue.");
-        setLoading(false);
-        return;
-      }
-      const { data: cls } = await supabase
-        .from("classes")
-        .select("class_name, section")
-        .eq("class_id", sessionUser.assignedClassId)
+  const classLabel = useMemo(() => {
+    if (!classMeta.name) return "Your class";
+    return classMeta.section
+      ? `${classMeta.name} · ${classMeta.section}`
+      : classMeta.name;
+  }, [classMeta]);
+
+  const fetchStudent = useCallback(
+    async (studentId: string) => {
+      const { data } = await supabase
+        .from("students")
+        .select("student_id, name, admission_no")
+        .eq("student_id", studentId)
         .maybeSingle();
-      if (cls) {
-        setClassMeta({
-          name: cls.class_name ?? "",
-          section: cls.section ?? ""
-        });
-      }
-      const { data: queue, error: qErr } = await supabase
-        .from("dismissal_requests")
-        .select("request_id, status, created_at, student_id")
-        .eq("status", "AWAITING_TEACHER")
-        .order("created_at", { ascending: true })
-        .limit(50);
-      if (qErr) throw qErr;
-      setRows((queue ?? []) as QueueRow[]);
-      const studentIds = Array.from(new Set((queue ?? []).map((r) => r.student_id)));
-      if (studentIds.length > 0) {
-        const { data: stus } = await supabase
-          .from("students")
-          .select("student_id, name, admission_no, class_id")
-          .in("student_id", studentIds);
-        const map: Record<string, StudentLite> = {};
-        for (const s of stus ?? []) {
-          map[s.student_id] = { name: s.name, admission_no: s.admission_no };
-        }
-        setStudents(map);
-      }
-      setAuthNote(null);
-    } catch {
-      setAuthNote("Could not load the queue.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [supabase]);
-
-  useEffect(() => {
-    loadQueue();
-  }, [loadQueue]);
-
-  const handleChange = useCallback(
-    async (row: QueueRow) => {
-      setRows((current) => {
-        const next = current.filter((r) => r.request_id !== row.request_id);
-        if (row.status === "AWAITING_TEACHER") {
-          next.push(row);
-          next.sort((a, b) => a.created_at.localeCompare(b.created_at));
-        }
-        return next;
-      });
-      // Read the latest student map from the ref (not closure state) so this
-      // handler stays stable and the realtime subscription is never re-created.
-      if (row.student_id && !studentsRef.current[row.student_id]) {
-        const { data: stu } = await supabase
-          .from("students")
-          .select("student_id, name, admission_no")
-          .eq("student_id", row.student_id)
-          .maybeSingle();
-        if (stu) {
-          setStudents((m) => ({
-            ...m,
-            [stu.student_id]: { name: stu.name, admission_no: stu.admission_no }
-          }));
-        }
+      if (data) {
+        setStudents((m) => ({
+          ...m,
+          [data.student_id]: {
+            name: data.name,
+            admission_no: data.admission_no
+          }
+        }));
       }
     },
     [supabase]
   );
 
-  useTableChanges<QueueRow>(supabase, "dismissal_requests", "*", handleChange);
+  // Realtime handler — the server is the authority; the browser only reflects.
+  // RLS already limits the stream to the teacher's assigned class, but we still
+  // guard on status so a stray payload can't inject a row. AWAITING_TEACHER rows
+  // are upserted (replace by request_id) and re-sorted; any other status means
+  // the request was decided elsewhere and is dropped from the queue.
+  const handleChange = useCallback(
+    (row: QueueRequest) => {
+      setRows((current) => {
+        const next = current.filter((r) => r.request_id !== row.request_id);
+        if (row.status === "AWAITING_TEACHER") {
+          next.push(row);
+          next.sort((a, b) => a.updated_at.localeCompare(b.updated_at));
+        }
+        return next;
+      });
+      if (row.student_id && !studentsRef.current[row.student_id]) {
+        void fetchStudent(row.student_id);
+      }
+    },
+    [fetchStudent]
+  );
+
+  useTableChanges<QueueRequest>(
+    supabase,
+    "dismissal_requests",
+    "*",
+    handleChange
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const {
+          data: { user }
+        } = await supabase.auth.getUser();
+        if (!user) {
+          if (!cancelled)
+            setAccess({
+              tone: "info",
+              message: "Sign in to review dismissal requests for your class.",
+              cta: "signin"
+            });
+          return;
+        }
+
+        const sessionUser = await getSessionUser(supabase);
+        if (!sessionUser || sessionUser.role !== "teacher") {
+          if (!cancelled)
+            setAccess({
+              tone: "warning",
+              message: "This area is for teachers.",
+              cta: "home"
+            });
+          return;
+        }
+        if (!sessionUser.assignedClassId) {
+          if (!cancelled)
+            setAccess({
+              tone: "warning",
+              message:
+                "No class is assigned to this account. Contact your school administrator.",
+              cta: "home"
+            });
+          return;
+        }
+
+        const { data: cls } = await supabase
+          .from("classes")
+          .select("class_name, section")
+          .eq("class_id", sessionUser.assignedClassId)
+          .maybeSingle();
+        if (!cancelled && cls) {
+          setClassMeta({
+            name: cls.class_name ?? "",
+            section: cls.section ?? ""
+          });
+        }
+
+        // RLS scopes this to the teacher's assigned class — the browser never
+        // supplies the class filter. Only live AWAITING_TEACHER requests appear.
+        const { data: queue, error: qErr } = await supabase
+          .from("dismissal_requests")
+          .select("request_id, student_id, status, created_at, updated_at")
+          .eq("status", "AWAITING_TEACHER")
+          .order("updated_at", { ascending: true })
+          .limit(50);
+        if (qErr) throw qErr;
+
+        if (!cancelled) setRows((queue ?? []) as QueueRequest[]);
+
+        const studentIds = Array.from(
+          new Set((queue ?? []).map((r) => r.student_id))
+        );
+        if (studentIds.length > 0) {
+          const { data: stus } = await supabase
+            .from("students")
+            .select("student_id, name, admission_no")
+            .in("student_id", studentIds);
+          const map: Record<string, StudentLite> = {};
+          for (const s of stus ?? []) {
+            map[s.student_id] = {
+              name: s.name,
+              admission_no: s.admission_no
+            };
+          }
+          if (!cancelled) setStudents(map);
+        }
+
+        if (!cancelled) {
+          setLoaded(true);
+        }
+      } catch {
+        if (!cancelled)
+          setAccess({
+            tone: "warning",
+            message: "We couldn't load your queue. Please try again shortly.",
+            cta: "home"
+          });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase]);
+
+  const liveMeta: { label: string; tone: StatusTone } =
+    status$ === "live"
+      ? { label: "Live", tone: "primary" }
+      : status$ === "reconnecting"
+        ? { label: "Reconnecting", tone: "warning" }
+        : status$ === "closed"
+          ? { label: "Offline", tone: "danger" }
+          : { label: "Connecting", tone: "neutral" };
+
+  if (access) {
+    const href = access.cta === "signin" ? "/login/teacher" : "/";
+    const cta = access.cta === "signin" ? "Sign in" : "Back to home";
+    return (
+      <Page title="Teacher queue">
+        <Card>
+          <CardContent className="flex flex-col gap-4 py-8">
+            <Alert tone={access.tone}>{access.message}</Alert>
+            <div>
+              <Link href={href}>
+                <Button variant={access.cta === "signin" ? "primary" : "outline"}>
+                  {cta}
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </Page>
+    );
+  }
+
+  if (!loaded) {
+    return (
+      <Page title={classLabel}>
+        <Section title="Pending pickups">
+          <Card>
+            <CardContent className="space-y-4 p-5">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex items-center gap-4">
+                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                  <Skeleton className="h-6 w-28 rounded-full" />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </Section>
+      </Page>
+    );
+  }
 
   return (
-    <>
-      <TopNav
-        links={NAV_LINKS}
-        trailing={
-          <div className="hidden md:flex items-center gap-2">
-            <StatusIndicator status={status$} />
-          </div>
-        }
-      />
-
-      <main className="pt-24 pb-16 section-shell">
-        <PageHeader
-          eyebrow="03 / TEACHER QUEUE"
-          title={classMeta.name || "Your Class"}
-          description="Live pickup requests for your assigned class. The list updates in real time when a gate scan arrives — no refresh required."
-        />
-
-        {authNote && (
-          <div className="mt-8">
-            <AccessNote message={authNote} signInHref="/login/teacher" signInLabel="Sign In" />
-          </div>
-        )}
-
-        {!authNote && (
-          <div className="mt-8">
-            <Panel
-              withTopBar
-              topBar={
-                <>
-                  <span>01 / PENDING PICKUPS</span>
-                  <span className="flex items-center gap-3">
-                    <span className="text-success flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_8px_#B7EF42] animate-pulse-dot" />
-                      LIVE
-                    </span>
-                    <GhostButton
-                      onClick={() => loadQueue()}
-                      disabled={refreshing}
-                      aria-label="Refresh pickup queue"
+    <Page
+      title={classLabel}
+      description="Live pickup requests for your assigned class. The list updates as gate scans arrive — no refresh needed."
+      actions={
+        <StatusBadge tone={liveMeta.tone} pulse={status$ === "live"}>
+          {liveMeta.label}
+        </StatusBadge>
+      }
+    >
+      <Section title="Pending pickups">
+        <Card>
+          {queueError && (
+            <CardContent className="border-b border-border">
+              <Alert tone="warning">{queueError}</Alert>
+            </CardContent>
+          )}
+          {rows.length === 0 ? (
+            <EmptyState
+              icon="clipboard"
+              title="You're all caught up."
+              description="There are no dismissal requests waiting for your attention."
+            />
+          ) : (
+            <ul className="divide-y divide-border">
+              {rows.map((r) => {
+                const s = students[r.student_id];
+                return (
+                  <li key={r.request_id}>
+                    <Link
+                      href={`/teacher/${r.request_id}`}
+                      className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-muted"
                     >
-                      <Icon name={refreshing ? "timer" : "arrow.right"} className="h-3.5 w-3.5" strokeWidth={2} />
-                      {refreshing ? "Refreshing" : "Refresh"}
-                    </GhostButton>
-                  </span>
-                </>
-              }
-            >
-              {loading ? (
-                <LoadingState message="Loading queue…" />
-              ) : rows.length === 0 ? (
-                <EmptyState message="No pending pickups." icon="scan" />
-              ) : (
-                <ul className="divide-y divide-line">
-                  {rows.map((r, idx) => {
-                    const s = students[r.student_id];
-                    return (
-                      <motion.li
-                        key={r.request_id}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{
-                          duration: 0.4,
-                          ease: [0.16, 1, 0.3, 1],
-                          delay: idx * 0.04
-                        }}
-                      >
-                        <Link
-                          href={`/teacher/${r.request_id}`}
-                          className="p-5 flex items-center justify-between gap-4 hover:bg-panel-alt transition-colors"
-                        >
-                          <div className="flex flex-col gap-1">
-                            <MonoLabel size="xs" tone="muted">
-                              SCANNED {clockTime(r.created_at)} · WAITED {ageLabel(r.created_at)}
-                            </MonoLabel>
-                            <p className="font-display text-2xl uppercase text-bone leading-none">
-                              {s?.name ?? "Loading…"}
-                            </p>
-                            <p className="font-mono text-mono-sm text-muted uppercase tracking-wider">
-                              ADM {s?.admission_no ?? "—"}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <MonoLabel size="xs" tone="accent">
-                              AWAITING DECISION
-                            </MonoLabel>
-                            <Icon name="arrow.right" className="h-4 w-4 text-muted" strokeWidth={2} />
-                          </div>
-                        </Link>
-                      </motion.li>
-                    );
-                  })}
-                </ul>
-              )}
-            </Panel>
-          </div>
-        )}
-      </main>
-    </>
+                      <Avatar name={s?.name ?? "?"} size="md" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold text-foreground">
+                          {s?.name ?? "—"}
+                        </p>
+                        <p className="text-sm text-muted-foreground tabular-nums">
+                          ADM {s?.admission_no ?? "—"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <StatusBadge tone="info" pulse>
+                          Awaiting decision
+                        </StatusBadge>
+                        <div className="hidden text-right sm:block">
+                          <p className="text-xs text-muted-foreground">
+                            Scanned {clockTime(r.updated_at)}
+                          </p>
+                          <p className="text-xs font-medium text-muted-foreground">
+                            {waitedLabel(r.updated_at)}
+                          </p>
+                        </div>
+                        <Icon
+                          name="chevron.right"
+                          className="h-5 w-5 shrink-0 text-muted-foreground"
+                          strokeWidth={2}
+                        />
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Card>
+      </Section>
+    </Page>
   );
 }

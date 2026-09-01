@@ -1,18 +1,11 @@
-import clsx from "clsx";
 import type { DismissalStatus } from "@/lib/dismissal/state";
-import { StatusBadge, type StatusTone } from "./StatusBadge";
+import { getStatusMeta } from "@/lib/dismissal/status-meta";
+import { StatusBadge } from "./StatusBadge";
 
-const COPY: Record<DismissalStatus, { label: string; tone: StatusTone }> = {
-  IDLE: { label: "No Active Request", tone: "neutral" },
-  REQUESTED: { label: "Awaiting Gate Scan", tone: "info" },
-  AWAITING_TEACHER: { label: "Awaiting Teacher", tone: "info" },
-  DISMISSED: { label: "Dismissed", tone: "success" },
-  REJECTED: { label: "Rejected", tone: "danger" },
-  EXPIRED: { label: "Expired", tone: "neutral" },
-  CANCELLED: { label: "Cancelled", tone: "neutral" }
-};
-
-/** Maps a dismissal status to the standard status badge (preserves contract). */
+/**
+ * Domain bridge: a dismissal status → the canonical StatusBadge.
+ * All label/tone logic lives in lib/dismissal/status-meta.ts (single source).
+ */
 export function StatusPill({
   status,
   pulse = false,
@@ -22,10 +15,10 @@ export function StatusPill({
   pulse?: boolean;
   className?: string;
 }) {
-  const c = COPY[status];
+  const meta = getStatusMeta(status);
   return (
-    <StatusBadge tone={c.tone} pulse={pulse} className={clsx(className)}>
-      {c.label}
+    <StatusBadge tone={meta.tone} pulse={pulse} className={className}>
+      {meta.label}
     </StatusBadge>
   );
 }

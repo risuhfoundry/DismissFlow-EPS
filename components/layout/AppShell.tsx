@@ -24,7 +24,7 @@ export function AppShell({
   navSections,
   children,
   onSignOut,
-  notificationCount,
+  accountHref,
   sidebarFooter
 }: {
   user?: ShellUser;
@@ -32,7 +32,7 @@ export function AppShell({
   navSections: NavConfig;
   children: ReactNode;
   onSignOut?: () => void;
-  notificationCount?: number;
+  accountHref?: string;
   sidebarFooter?: ReactNode;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -45,7 +45,7 @@ export function AppShell({
           user={user}
           onMenuClick={() => setDrawerOpen(true)}
           onSignOut={onSignOut}
-          notificationCount={notificationCount}
+          accountHref={accountHref}
         />
 
         <div className="lg:grid lg:grid-cols-[16rem_1fr]">

@@ -5,9 +5,9 @@
 // (tailwind.config.ts + app/globals.css); raw hex in components defeats that
 // single source of truth.
 //
-// Scans `components/` only (documentation, generated files, node_modules,
-// lockfiles, and .svg data are out of scope by construction). Detects 3- and
-// 6-digit hex colors like #fff, #ffffff, #000, #123456.
+// Scans `components/` by default, PLUS app/globals.css (the one global style
+// file that previously held raw hex for selection/focus/scrollbar). Detects 3-
+// and 6-digit hex colors like #fff, #ffffff, #000, #123456.
 //
 // Exit code 0 = clean, 1 = one or more raw hex colors found.
 //
@@ -21,6 +21,7 @@ import path from "node:path";
 import process from "node:process";
 
 const ROOT = path.resolve(process.argv[2] || "components");
+const GLOBALS = path.resolve("app/globals.css");
 const SKIP_DIRS = new Set(["node_modules", ".next"]);
 const SCAN_EXT = new Set([".ts", ".tsx", ".css"]);
 
@@ -31,11 +32,16 @@ const HEX = /#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?\b/g;
 const findings = [];
 
 function scanFile(file) {
+  if (!fs.existsSync(file)) return;
   const text = fs.readFileSync(file, "utf8");
   const lines = text.split("\n");
   lines.forEach((line, i) => {
     if (line.includes("hex-ignore")) return;
     if (/url\(|data:/.test(line)) return; // skip url()/data: (SVG data URIs)
+    // Skip CSS custom-property declarations (e.g. `--color-primary: #2c56d6`).
+    // These are legitimate token mirrors of tailwind.config.ts values, not
+    // raw color usages in styles.
+    if (/--[\w-]+\s*:\s*#/.test(line)) return;
     let m;
     HEX.lastIndex = 0;
     while ((m = HEX.exec(line)) !== null) {
@@ -62,6 +68,8 @@ if (!fs.existsSync(ROOT)) {
 }
 
 walk(ROOT);
+// Global stylesheet is part of the token surface — scan it too.
+scanFile(GLOBALS);
 
 if (findings.length === 0) {
   console.log(`check-no-hex: OK — no raw hex colors in ${path.relative(process.cwd(), ROOT)}/`);

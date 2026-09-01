@@ -22,7 +22,9 @@ import type { Config } from "tailwindcss";
 const INK = {
   primary: "#0E1726", // main text / headings
   secondary: "#3C4658", // supporting text
-  muted: "#697586", // metadata, captions
+  // Darkened from #697586 (~4.0:1) to #5B6573 (~4.7:1) so caption/metadata
+  // text clears WCAG AA 4.5:1 at the 12px caption size.
+  muted: "#5B6573", // metadata, captions
   inverse: "#FFFFFF" // text on colored surfaces
 };
 
@@ -36,21 +38,27 @@ const SURFACE = {
 // Refined, trustworthy blue — confident and slightly indigo, not generic.
 // `soft` and `subtle` are aliases (both provided so existing `-soft` class
 // names keep working and the spec's `-subtle` naming is honored).
+// `on-soft` is the text color used ON the soft tint (passes WCAG AA at the
+// 12px badge size — the mid-tone base colors do not).
 const PRIMARY = {
   DEFAULT: "#2C56D6",
   hover: "#2348B8",
   active: "#1D3C9B",
   soft: "#EEF2FE", // tint for selected / active backgrounds
   subtle: "#EEF2FE",
-  foreground: "#FFFFFF"
+  onSoft: "#1D3C9B", // text on soft tint
+  foreground: "#FFFFFF" // text on solid primary
 };
 
 // Feedback colors — restrained, accessible, distinct from primary.
+// `on-soft` = dark text shade for the tinted `StatusBadge` (white-on-tint fails
+// AA; mid-tone-on-tint fails for warning/danger). `foreground` stays white for
+// solid surfaces (buttons, solid badges).
 const FEEDBACK = {
-  success: { DEFAULT: "#16864A", hover: "#116B3B", soft: "#E7F5EE", subtle: "#E7F5EE", foreground: "#FFFFFF" },
-  warning: { DEFAULT: "#B7791A", hover: "#956112", soft: "#FBF3E2", subtle: "#FBF3E2", foreground: "#FFFFFF" },
-  danger: { DEFAULT: "#D23B3B", hover: "#B22B2B", soft: "#FCEBEB", subtle: "#FCEBEB", foreground: "#FFFFFF" },
-  info: { DEFAULT: "#0E84B4", hover: "#0A6C95", soft: "#E5F3FA", subtle: "#E5F3FA", foreground: "#FFFFFF" }
+  success: { DEFAULT: "#16864A", hover: "#116B3B", soft: "#E7F5EE", subtle: "#E7F5EE", onSoft: "#0F6B40", foreground: "#FFFFFF" },
+  warning: { DEFAULT: "#B7791A", hover: "#956112", soft: "#FBF3E2", subtle: "#FBF3E2", onSoft: "#8A5310", foreground: "#FFFFFF" },
+  danger: { DEFAULT: "#D23B3B", hover: "#B22B2B", soft: "#FCEBEB", subtle: "#FCEBEB", onSoft: "#B22B2B", foreground: "#FFFFFF" },
+  info: { DEFAULT: "#0E84B4", hover: "#0A6C95", soft: "#E5F3FA", subtle: "#E5F3FA", onSoft: "#0A6C95", foreground: "#FFFFFF" }
 };
 
 const config: Config = {
@@ -102,11 +110,26 @@ const config: Config = {
 
       fontFamily: {
         sans: ["var(--font-geist-sans)", "Inter", "system-ui", "sans-serif"],
-        mono: ["var(--font-geist-mono)", "ui-monospace", "SFMono-Regular", "monospace"]
+        mono: ["var(--font-geist-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
+        // Editorial display face — a high-quality system serif stack (no network
+        // fetch, no font files). Pairs a humanist serif against the Geist grotesque
+        // for the calm, premium, editorial product voice. Used only for display
+        // headlines, never body copy.
+        serif: [
+          "Iowan Old Style",
+          "Palatino Linotype",
+          "Palatino",
+          "Georgia",
+          "Cambria",
+          "Times New Roman",
+          "serif"
+        ]
       },
 
       fontSize: {
-        // Hero / marketing only — used sparingly.
+        // Editorial hero — the largest, calmest headline. Serif, generous.
+        hero: ["clamp(2.75rem, 5.4vw, 4.75rem)", { lineHeight: "1.03", fontWeight: "600", letterSpacing: "-0.022em" }],
+        // Section display — editorial sub-headline.
         display: ["clamp(2.25rem, 3.6vw, 3.25rem)", { lineHeight: "1.06", fontWeight: "700", letterSpacing: "-0.022em" }],
         // Dialog / drawer titles (legacy alias for the old `title` size).
         title: ["1.375rem", { lineHeight: "1.25", fontWeight: "650", letterSpacing: "-0.015em" }],

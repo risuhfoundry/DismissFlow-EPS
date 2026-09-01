@@ -191,7 +191,7 @@ export default function AdminOverviewPage() {
 
   return (
     <Page
-      title="Operations overview"
+      title="Today's operations"
       description="Live operational picture for your school. Every figure is computed from the database by the administrator's Row-Level Security scope — nothing is hardcoded. Dismissal state itself is owned by the trusted Edge Functions; this portal only observes it."
       actions={
         <StatusBadge tone={liveMeta.tone} pulse={status$ === "live"}>

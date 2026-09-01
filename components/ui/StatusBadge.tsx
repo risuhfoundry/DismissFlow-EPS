@@ -11,11 +11,11 @@ export type StatusTone =
 
 const TONES: Record<StatusTone, string> = {
   neutral: "bg-secondary text-secondary-foreground",
-  info: "bg-info-soft text-info",
-  success: "bg-success-soft text-success",
-  warning: "bg-warning-soft text-warning",
-  danger: "bg-destructive-soft text-destructive",
-  primary: "bg-primary-soft text-primary"
+  info: "bg-info-soft text-info-on-soft",
+  success: "bg-success-soft text-success-on-soft",
+  warning: "bg-warning-soft text-warning-on-soft",
+  danger: "bg-destructive-soft text-destructive-on-soft",
+  primary: "bg-primary-soft text-primary-on-soft"
 };
 
 const DOT: Record<StatusTone, string> = {

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { Icon } from "@/components/ui/Icon";
 import { Avatar } from "@/components/ui/Avatar";
-import { Badge } from "@/components/ui/Badge";
 import { IconButton } from "@/components/ui/IconButton";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { Wordmark } from "./Brand";
@@ -13,6 +12,14 @@ export type ShellUser = {
   name: string;
   email?: string;
   role: Role;
+};
+
+// Role identity — a calm, always-visible signal of which portal you're in.
+const ROLE_META: Record<Role, { label: string; icon: "users" | "school" | "scan" | "shield" }> = {
+  parent: { label: "Parent", icon: "users" },
+  teacher: { label: "Teacher", icon: "school" },
+  gate: { label: "Gate", icon: "scan" },
+  admin: { label: "Admin", icon: "shield" }
 };
 
 /**
@@ -25,17 +32,17 @@ export function TopHeader({
   user,
   onMenuClick,
   onSignOut,
-  notificationCount
+  accountHref
 }: {
   schoolName?: string;
   user?: ShellUser;
   onMenuClick?: () => void;
   onSignOut?: () => void;
-  notificationCount?: number;
+  accountHref?: string;
 }) {
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-border bg-background/90 px-4 backdrop-blur sm:px-6">
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         {onMenuClick && (
           <IconButton
             ariaLabel="Open navigation"
@@ -52,26 +59,21 @@ export function TopHeader({
         {schoolName && (
           <>
             <span className="hidden h-6 w-px bg-border sm:block" aria-hidden="true" />
-            <span className="hidden items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-sm text-muted-foreground sm:inline-flex">
-              <Icon name="school" className="h-4 w-4" />
-              {schoolName}
+            <span className="hidden items-center gap-1.5 truncate rounded-full border border-border bg-card px-3 py-1 text-sm text-muted-foreground sm:inline-flex">
+              <Icon name="school" className="h-4 w-4 shrink-0" />
+              <span className="truncate">{schoolName}</span>
             </span>
           </>
         )}
+        {user && (
+          <span className="hidden items-center gap-1.5 rounded-full bg-primary-soft px-2.5 py-1 text-xs font-semibold text-primary md:inline-flex">
+            <Icon name={ROLE_META[user.role].icon} className="h-3.5 w-3.5" />
+            {ROLE_META[user.role].label}
+          </span>
+        )}
       </div>
 
-      <div className="flex items-center gap-2">
-        <IconButton
-          ariaLabel="Notifications"
-          variant="ghost"
-          className="relative"
-        >
-          <Icon name="bell" className="h-5 w-5" />
-          {notificationCount != null && notificationCount > 0 && (
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-destructive" aria-hidden="true" />
-          )}
-        </IconButton>
-
+      <div className="flex shrink-0 items-center gap-2">
         {user && (
           <Dropdown
             label="Account menu"
@@ -83,18 +85,22 @@ export function TopHeader({
                     {user.name}
                   </span>
                   <span className="block text-xs leading-tight text-muted-foreground">
-                    {user.role}
+                    {ROLE_META[user.role].label}
                   </span>
                 </span>
                 <Icon name="chevron.down" className="hidden h-4 w-4 text-muted-foreground sm:block" />
               </span>
             }
             items={[
-              {
-                label: "Account",
-                icon: <Icon name="user" className="h-4 w-4" />,
-                onSelect: () => {}
-              },
+              ...(accountHref
+                ? [
+                    {
+                      label: "Profile",
+                      icon: <Icon name="user" className="h-4 w-4" />,
+                      href: accountHref
+                    }
+                  ]
+                : []),
               {
                 label: "Sign out",
                 icon: <Icon name="logout" className="h-4 w-4" />,

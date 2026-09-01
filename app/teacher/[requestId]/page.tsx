@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { Button, DangerOutlineButton } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
-import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Alert } from "@/components/ui/Alert";
 import { Icon } from "@/components/ui/Icon";
 import { Avatar } from "@/components/ui/Avatar";
@@ -18,6 +18,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { approveDismissal, rejectDismissal } from "@/lib/dismissal/client";
 import { useTableChanges } from "@/lib/realtime/subs";
 import type { DismissalStatus } from "@/lib/dismissal/state";
+import { getStatusMeta } from "@/lib/dismissal/status-meta";
 
 type Access = {
   tone: "info" | "warning";
@@ -51,20 +52,8 @@ function clockTime(iso: string): string {
   });
 }
 
-// Teacher-appropriate status labels (distinct from the parent-facing
-// dismissalStatusMeta, where AWAITING_TEACHER reads "Approved").
-const STATUS_META: Record<
-  DismissalStatus,
-  { label: string; tone: StatusTone }
-> = {
-  IDLE: { label: "Idle", tone: "neutral" },
-  REQUESTED: { label: "Awaiting gate scan", tone: "info" },
-  AWAITING_TEACHER: { label: "Awaiting your decision", tone: "info" },
-  DISMISSED: { label: "Dismissed", tone: "success" },
-  REJECTED: { label: "Rejected", tone: "danger" },
-  CANCELLED: { label: "Cancelled", tone: "neutral" },
-  EXPIRED: { label: "Expired", tone: "warning" }
-};
+// Status labels/tones come from the canonical vocabulary in
+// lib/dismissal/status-meta.ts — identical across every portal.
 
 function describeDecisionError(
   code: string,
@@ -319,7 +308,7 @@ export default function TeacherDetailPage() {
   }
 
   const status = request?.status ?? "IDLE";
-  const meta = STATUS_META[status];
+  const meta = getStatusMeta(status);
   const isFinal = ["DISMISSED", "REJECTED", "CANCELLED", "EXPIRED"].includes(
     status
   );

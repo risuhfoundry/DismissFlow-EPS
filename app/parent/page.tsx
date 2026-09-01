@@ -7,8 +7,7 @@ import {
   Card,
   CardContent,
   CardFooter,
-  CardHeader,
-  CardTitle
+  CardHeader
 } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Alert } from "@/components/ui/Alert";
@@ -69,46 +68,22 @@ function greetingFor(d: Date): string {
   return "Good evening";
 }
 
-// ---- Presentational pieces (pure, prop-driven — no backend knowledge) ----
+/* ---- Presentational pieces (pure, prop-driven — no backend knowledge) ---- */
 
-function ChildCard({ student }: { student: StudentView }) {
+function ChildIdentity({ student }: { student: StudentView }) {
   return (
-    <Card className="animate-fade-in">
-      <CardContent className="flex items-center gap-4 py-5">
+    <Card>
+      <CardContent className="flex items-center gap-4 py-4 sm:py-5">
         <Avatar name={student.name} size="lg" />
         <div className="min-w-0">
           <p className="text-h3 font-semibold text-foreground">{student.name}</p>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Admission {student.admissionNo}
+            {student.className}
+            {student.section ? ` · Section ${student.section}` : ""} ·{" "}
+            <span className="tabular">{student.admissionNo}</span>
           </p>
         </div>
       </CardContent>
-      <div className="grid grid-cols-2 divide-x divide-border border-t border-border sm:grid-cols-3">
-        <div className="px-5 py-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Class
-          </p>
-          <p className="mt-1 text-sm font-medium text-foreground">
-            {student.className}
-          </p>
-        </div>
-        <div className="px-5 py-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Section
-          </p>
-          <p className="mt-1 text-sm font-medium text-foreground">
-            {student.section}
-          </p>
-        </div>
-        <div className="col-span-2 px-5 py-4 sm:col-span-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Admission no.
-          </p>
-          <p className="mt-1 text-sm font-medium text-foreground tabular-nums">
-            {student.admissionNo}
-          </p>
-        </div>
-      </div>
     </Card>
   );
 }
@@ -124,18 +99,18 @@ function IdlePanel({
 }) {
   return (
     <Card className="animate-fade-in">
-      <CardContent className="flex flex-col gap-4 py-6">
+      <CardContent className="flex flex-col gap-5 py-8 sm:py-10">
         <div className="flex items-start gap-4">
-          <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
-            <Icon name="walk" className="h-5 w-5" strokeWidth={2} />
+          <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
+            <Icon name="walk" className="h-6 w-6" strokeWidth={2} />
           </span>
           <div>
-            <h3 className="text-title font-semibold text-foreground">
-              Ready for pickup?
-            </h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Generate a secure dismissal code for gate staff when you arrive to
-              collect your child.
+            <h2 className="font-serif text-h2 font-semibold text-foreground">
+              No pickup in progress
+            </h2>
+            <p className="mt-2 max-w-md text-sm text-muted-foreground">
+              When you&rsquo;re on the way, request a dismissal. A secure code
+              is generated for the gate — single-use, valid only for this pickup.
             </p>
           </div>
         </div>
@@ -170,8 +145,8 @@ function QrPanel({ token, countdown }: { token: string; countdown: string }) {
         </div>
       </div>
       <p className="text-center text-sm text-muted-foreground">
-        Present this code to gate staff when you arrive. It is single-use and
-        valid only for this pickup.
+        Show this code to gate staff when you arrive. It is single-use and valid
+        only for this pickup.
       </p>
       {countdown !== "—" && (
         <p
@@ -210,10 +185,22 @@ function ActivePanel({
     <Card tone="soft" className="animate-fade-in">
       <CardHeader
         title="Pickup in progress"
-        description={meta.next}
+        description={meta.description}
         action={<StatusBadge tone={meta.tone} pulse>{meta.label}</StatusBadge>}
       />
-      <CardContent className="flex flex-col gap-5 py-6">
+      <CardContent className="flex flex-col gap-6 py-8">
+        <div className="flex items-center gap-4">
+          <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
+            <Icon
+              name={status === "REQUESTED" ? "qr" : "timer"}
+              className="h-6 w-6"
+              strokeWidth={2}
+            />
+          </span>
+          <h2 className="font-serif text-h2 font-semibold text-foreground">
+            {meta.label}
+          </h2>
+        </div>
         {qrToken ? (
           <QrPanel token={qrToken} countdown={countdown} />
         ) : (
@@ -263,14 +250,14 @@ function OutcomePanel({
       icon: "check",
       tone: "success",
       cardTone: "success",
-      title: "Dismissal completed.",
+      title: "Dismissal completed",
       detail: "Your child has been released. The teacher confirmed the pickup."
     },
     REJECTED: {
       icon: "x",
       tone: "danger",
       cardTone: "danger",
-      title: "Request rejected.",
+      title: "Request rejected",
       detail:
         "The teacher could not approve this pickup. Contact the school if you believe this was in error."
     },
@@ -278,7 +265,7 @@ function OutcomePanel({
       icon: "x",
       tone: "neutral",
       cardTone: "muted",
-      title: "Request cancelled.",
+      title: "Request cancelled",
       detail:
         "You cancelled this request. You can start a new one whenever you need a pickup."
     },
@@ -286,7 +273,7 @@ function OutcomePanel({
       icon: "timer",
       tone: "warning",
       cardTone: "soft",
-      title: "Request expired.",
+      title: "Request expired",
       detail:
         "The code was not used in time and has expired. Generate a new request to try again."
     }
@@ -295,10 +282,10 @@ function OutcomePanel({
   if (!c) return null;
   return (
     <Card tone={c.cardTone} className="animate-fade-in">
-      <CardContent className="flex flex-col items-center gap-4 py-8 text-center">
+      <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
         <span
           className={
-            "inline-flex h-14 w-14 items-center justify-center rounded-full " +
+            "inline-flex h-16 w-16 items-center justify-center rounded-full " +
             (c.tone === "success"
               ? "bg-success-soft text-success"
               : c.tone === "danger"
@@ -308,10 +295,12 @@ function OutcomePanel({
                   : "bg-muted text-muted-foreground")
           }
         >
-          <Icon name={c.icon} className="h-7 w-7" strokeWidth={2} />
+          <Icon name={c.icon} className="h-8 w-8" strokeWidth={2} />
         </span>
         <div>
-          <h3 className="text-h3 font-semibold text-foreground">{c.title}</h3>
+          <h2 className="font-serif text-h2 font-semibold text-foreground">
+            {c.title}
+          </h2>
           <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
             {c.detail}
           </p>
@@ -627,7 +616,7 @@ export default function ParentDashboardPage() {
       <Page
         title={greeting}
         description={
-          student ? `Manage pickup for ${student.name}.` : undefined
+          student ? `Here is where pickup stands for ${student.name}.` : undefined
         }
         actions={
           <StatusBadge tone={liveMeta.tone} pulse={status$ === "live"}>
@@ -636,9 +625,11 @@ export default function ParentDashboardPage() {
         }
       >
         <div className="space-y-8">
-          <Section title="Your child">
-            {student && <ChildCard student={student} />}
-          </Section>
+          {student && (
+            <Section title="Your child">
+              <ChildIdentity student={student} />
+            </Section>
+          )}
 
           <Section title="Pickup">
             {isFinal ? (

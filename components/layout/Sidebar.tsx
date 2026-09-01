@@ -21,8 +21,12 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
 
+  // Index routes (e.g. /admin, /parent) match exactly so they don't light up on
+  // every sub-route; nested routes match by exact path or path-prefix-with-slash.
   const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+    href === "/"
+      ? pathname === "/"
+      : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <nav className="flex h-full flex-col gap-6 overflow-y-auto px-3 py-5" aria-label="Primary">

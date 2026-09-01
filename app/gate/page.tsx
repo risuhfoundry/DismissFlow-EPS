@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
+import { StatusPill } from "@/components/ui/StatusPill";
 import { Alert } from "@/components/ui/Alert";
 import { Icon } from "@/components/ui/Icon";
 import { Spinner } from "@/components/ui/Spinner";
@@ -181,7 +182,7 @@ export default function GateScannerPage() {
 
   return (
     <Page
-      title="Scan dismissal QR"
+      title="Verify a dismissal"
       description="Point the camera at the parent's QR code, or enter the token manually. The code is sent to the server for verification — the browser never decides whether it is valid."
       actions={
         <StatusBadge tone={liveMeta.tone} pulse={status$ === "live"}>
@@ -190,7 +191,7 @@ export default function GateScannerPage() {
       }
     >
       <Section title="Scanner">
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-[1.25fr_1fr]">
           {/* Camera */}
           <Card>
             <CardHeader title="Camera" />
@@ -351,39 +352,34 @@ function ResultPanel({
   if (verdict.kind === "verified") {
     return (
       <div
-        className="flex flex-col gap-4"
+        className="flex flex-col gap-5"
         role="status"
         aria-live="polite"
       >
-        <StatusBadge tone="success">QR verified</StatusBadge>
+        <div className="flex items-center gap-3">
+          <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-success-soft text-success">
+            <Icon name="check" className="h-6 w-6" strokeWidth={2} />
+          </span>
+          <div className="min-w-0">
+            <p className="font-serif text-h2 font-semibold text-foreground">
+              Code verified
+            </p>
+            <p className="text-sm text-muted-foreground">
+              The server confirmed this QR. The student may be released to the
+              teacher.
+            </p>
+          </div>
+        </div>
         <DefinitionList>
           <Field label="Student">{verdict.studentName}</Field>
           <Field label="Class">{verdict.className}</Field>
-          <Field label="Status">Awaiting teacher approval</Field>
+          <Field label="Status">
+            <StatusPill status="AWAITING_TEACHER" />
+          </Field>
         </DefinitionList>
         <p className="text-sm text-muted-foreground">
           The teacher will now approve or reject this dismissal.
         </p>
-        <div>
-          <Button variant="outline" onClick={onReset} leftIcon={<Icon name="refresh" className="h-4 w-4" strokeWidth={2} />}>
-            Scan another QR
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  const guide = describeScanError(verdict.code, verdict.message);
-  return (
-    <div
-      className="flex flex-col gap-3"
-      role="alert"
-      aria-live="assertive"
-    >
-      <p className="font-semibold text-foreground">{guide.title}</p>
-      <Alert tone="danger">{guide.detail}</Alert>
-      <p className="text-sm text-muted-foreground">{guide.action}</p>
-      <div>
         <Button
           variant="outline"
           onClick={onReset}
@@ -392,6 +388,35 @@ function ResultPanel({
           Scan another QR
         </Button>
       </div>
+    );
+  }
+
+  const guide = describeScanError(verdict.code, verdict.message);
+  return (
+    <div
+      className="flex flex-col gap-4"
+      role="alert"
+      aria-live="assertive"
+    >
+      <div className="flex items-start gap-3">
+        <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-destructive-soft text-destructive">
+          <Icon name="x" className="h-6 w-6" strokeWidth={2} />
+        </span>
+        <div className="min-w-0">
+          <p className="font-serif text-h2 font-semibold text-foreground">
+            {guide.title}
+          </p>
+        </div>
+      </div>
+      <Alert tone="danger">{guide.detail}</Alert>
+      <p className="text-sm text-muted-foreground">{guide.action}</p>
+      <Button
+        variant="outline"
+        onClick={onReset}
+        leftIcon={<Icon name="refresh" className="h-4 w-4" strokeWidth={2} />}
+      >
+        Scan another QR
+      </Button>
     </div>
   );
 }

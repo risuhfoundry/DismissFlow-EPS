@@ -18,15 +18,13 @@ export function AppLayout({
   user,
   schoolName,
   children,
-  onSignOut,
-  notificationCount
+  onSignOut
 }: {
   role: Role;
   user: { name: string; email?: string; role: Role };
   schoolName?: string;
   children: ReactNode;
   onSignOut?: () => void;
-  notificationCount?: number;
 }) {
   return (
     <AppShell
@@ -34,7 +32,7 @@ export function AppLayout({
       schoolName={schoolName}
       navSections={getNavForRole(role)}
       onSignOut={onSignOut}
-      notificationCount={notificationCount}
+      accountHref={`/${role}/profile`}
     >
       {children}
     </AppShell>

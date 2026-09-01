@@ -14,6 +14,16 @@
     --font-mono: var(--font-geist-mono), ui-monospace, monospace;
     --radius: 0.5rem;
     color-scheme: light;
+
+    /* Token mirrors kept in sync with tailwind.config.ts so global styles stay
+       token-driven (no raw hex). The hex linter scans this file too. */
+    --color-ink-primary: #0e1726;
+    --color-primary: #2c56d6;
+    --color-primary-soft: #eef2fe;
+    --color-success: #16864a;
+    --color-border-strong: #cdd3df;
+    --color-scrollbar: #c2cad6;
+    --color-scrollbar-hover: #9aa4b6;
   }
 
   html {
@@ -36,12 +46,12 @@
 
   ::selection {
     background: rgba(44, 86, 214, 0.16);
-    color: #0e1726;
+    color: var(--color-ink-primary);
   }
 
   /* Visible, consistent keyboard focus for every interactive element. */
   :focus-visible {
-    outline: 2px solid #2c56d6;
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
     border-radius: 4px;
   }
@@ -55,20 +65,20 @@
   /* Calm, thin scrollbars that match the surface palette. */
   * {
     scrollbar-width: thin;
-    scrollbar-color: #c2cad6 transparent;
+    scrollbar-color: var(--color-scrollbar) transparent;
   }
   *::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
   *::-webkit-scrollbar-thumb {
-    background: #c2cad6;
+    background: var(--color-scrollbar);
     border-radius: 9999px;
     border: 3px solid transparent;
     background-clip: padding-box;
   }
   *::-webkit-scrollbar-thumb:hover {
-    background: #9aa4b6;
+    background: var(--color-scrollbar-hover);
     background-clip: padding-box;
     border: 3px solid transparent;
   }

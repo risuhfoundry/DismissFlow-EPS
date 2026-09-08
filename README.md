@@ -1,6 +1,6 @@
 # DismissFlow — EPS
 
-**Web-based school e-dismissal & digital pickup system**
+**Web-based school e-dismissal & digital pickup system** *(actively under development)*
 *Prototype: Nursery / Tulip · 18 students · 2-developer team*
 
 DismissFlow replaces manual, card-based student dismissal with a secure digital chain:
